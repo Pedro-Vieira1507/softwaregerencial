@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/utils";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,14 @@ export default function Configuracoes() {
   const [connectionStatus, setConnectionStatus] = useState<"idle" | "success" | "error">("idle");
   const { toast } = useToast();
 
+  // Carrega as configurações salvas ao abrir a tela
+  useEffect(() => {
+    const savedUrl = localStorage.getItem("onclick_base_url");
+    const savedToken = localStorage.getItem("onclick_api_token");
+    if (savedUrl) setBaseUrl(savedUrl);
+    if (savedToken) setApiToken(savedToken);
+  }, []);
+
   const handleSave = () => {
     if (!baseUrl || !apiToken) {
       toast({
@@ -25,155 +34,118 @@ export default function Configuracoes() {
       return;
     }
 
-    // Save to localStorage for demo purposes
+    // Salva no navegador
     localStorage.setItem("onclick_base_url", baseUrl);
     localStorage.setItem("onclick_api_token", apiToken);
 
     toast({
       title: "Configurações salvas",
-      description: "As credenciais da API foram salvas com sucesso.",
+      description: "As credenciais foram atualizadas.",
     });
   };
 
   const handleTestConnection = async () => {
     if (!baseUrl || !apiToken) {
-      toast({
-        variant: "destructive",
-        title: "Campos obrigatórios",
-        description: "Preencha a URL base e o Token da API antes de testar.",
-      });
+      toast({ variant: "destructive", title: "Erro", description: "Preencha os campos antes de testar." });
       return;
     }
 
     setIsTesting(true);
     setConnectionStatus("idle");
+    
+    // Salva antes de testar para garantir que a função use os dados novos
+    localStorage.setItem("onclick_base_url", baseUrl);
+    localStorage.setItem("onclick_api_token", apiToken);
 
-    // Simulate API connection test
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    try {
+      console.log("Iniciando teste de conexão...");
+      const { data, error } = await supabase.functions.invoke('onclick-proxy', {
+        body: { action: 'GET_PRODUCTS' }, // Tenta buscar produtos para ver se a chave funciona
+        headers: {
+          'x-onclick-url': baseUrl,
+          'x-onclick-token': apiToken
+        }
+      });
 
-    // For demo, randomly succeed or fail
-    const success = Math.random() > 0.3;
-    setConnectionStatus(success ? "success" : "error");
-    setIsTesting(false);
+      if (error) throw error;
 
-    toast({
-      variant: success ? "default" : "destructive",
-      title: success ? "Conexão estabelecida" : "Falha na conexão",
-      description: success 
-        ? "A API do Onclick ERP está acessível." 
-        : "Verifique as credenciais e tente novamente.",
-    });
+      // Se a API retornou erro (ex: 401 Unauthorized), o proxy retorna sucesso HTTP mas com json de erro ou vazio
+      if (data && (data.error || data.message)) {
+         throw new Error(data.error || data.message);
+      }
+
+      setConnectionStatus("success");
+      toast({
+        title: "Sucesso!",
+        description: "Conexão com o Onclick estabelecida.",
+      });
+
+    } catch (error: any) {
+      console.error("Erro no teste:", error);
+      setConnectionStatus("error");
+      toast({
+        variant: "destructive",
+        title: "Falha na conexão",
+        description: error.message || "Verifique a URL e o Token.",
+      });
+    } finally {
+      setIsTesting(false);
+    }
   };
 
   return (
     <div>
-      <PageHeader 
-        title="Configurações" 
-        description="Configure a integração com o Onclick ERP"
-      />
+      <PageHeader title="Configurações" description="Integração Onclick ERP" />
 
       <div className="grid gap-6 max-w-2xl">
-        {/* API Configuration */}
         <Card className="shadow-card">
           <CardHeader>
             <CardTitle className="text-lg font-heading flex items-center gap-2">
-              <Settings className="w-5 h-5 text-primary" />
-              Credenciais da API
+              <Settings className="w-5 h-5 text-primary" /> Credenciais da API
             </CardTitle>
             <CardDescription>
-              Insira as credenciais de acesso à API do Onclick ERP. Estas informações são armazenadas de forma segura.
+              Dados de conexão com o Onclick.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="baseUrl" className="flex items-center gap-2">
-                <Globe className="w-4 h-4 text-muted-foreground" />
-                URL Base da API
-              </Label>
+              <Label htmlFor="baseUrl">URL Base da API</Label>
               <Input
                 id="baseUrl"
-                placeholder="https://api.onclick.com.br/v1"
+                placeholder="Ex: https://api.onclick.com.br/api/v1"
                 value={baseUrl}
                 onChange={(e) => setBaseUrl(e.target.value)}
               />
-              <p className="text-xs text-muted-foreground">
-                Endereço base da API fornecido pelo Onclick ERP
-              </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="apiToken" className="flex items-center gap-2">
-                <Key className="w-4 h-4 text-muted-foreground" />
-                Token de Acesso
-              </Label>
+              <Label htmlFor="apiToken">Token de Acesso (API Key)</Label>
               <Input
                 id="apiToken"
                 type="password"
-                placeholder="••••••••••••••••••••"
+                placeholder="Cole seu Token aqui"
                 value={apiToken}
                 onChange={(e) => setApiToken(e.target.value)}
               />
-              <p className="text-xs text-muted-foreground">
-                Token de autenticação gerado no painel do Onclick
+              <p className="text-xs text-muted-foreground text-yellow-600">
+                Atenção: Não use sua senha de login. Use a chave gerada no ERP.
               </p>
             </div>
 
-            {/* Connection Status */}
             {connectionStatus !== "idle" && (
-              <div
-                className={cn(
-                  "flex items-center gap-2 p-3 rounded-lg",
-                  connectionStatus === "success" 
-                    ? "bg-success/10 text-success" 
-                    : "bg-destructive/10 text-destructive"
-                )}
-              >
-                {connectionStatus === "success" ? (
-                  <>
-                    <CheckCircle2 className="w-5 h-5" />
-                    <span className="font-medium">Conexão estabelecida com sucesso</span>
-                  </>
-                ) : (
-                  <>
-                    <XCircle className="w-5 h-5" />
-                    <span className="font-medium">Falha ao conectar com a API</span>
-                  </>
-                )}
+              <div className={cn("flex items-center gap-2 p-3 rounded-lg", connectionStatus === "success" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700")}>
+                {connectionStatus === "success" ? <CheckCircle2 className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
+                <span className="font-medium">
+                  {connectionStatus === "success" ? "Conectado com sucesso!" : "Falha na conexão."}
+                </span>
               </div>
             )}
 
             <div className="flex gap-3 pt-2">
-              <Button onClick={handleSave}>
-                Salvar Configurações
+              <Button onClick={handleSave} variant="outline">Salvar</Button>
+              <Button onClick={handleTestConnection} disabled={isTesting}>
+                {isTesting ? <Loader2 className="animate-spin mr-2" /> : "Testar Conexão"}
               </Button>
-              <Button variant="outline" onClick={handleTestConnection} disabled={isTesting}>
-                {isTesting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Testando...
-                  </>
-                ) : (
-                  "Testar Conexão"
-                )}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Info Card */}
-        <Card className="shadow-card border-primary/20 bg-primary/5">
-          <CardContent className="pt-6">
-            <div className="flex gap-4">
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <Key className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <h4 className="font-heading font-semibold mb-1">Sobre a Segurança</h4>
-                <p className="text-sm text-muted-foreground">
-                  Para ambientes de produção, recomendamos utilizar o Lovable Cloud para armazenar suas credenciais de forma segura através de Edge Functions. 
-                  Isso evita expor tokens no frontend e garante maior segurança nas requisições.
-                </p>
-              </div>
             </div>
           </CardContent>
         </Card>
