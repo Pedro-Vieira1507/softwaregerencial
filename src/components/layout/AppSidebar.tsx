@@ -6,7 +6,8 @@ import {
   Settings, 
   Link2,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Truck
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,7 @@ const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
   { icon: Package, label: "Estoque", path: "/estoque" },
   { icon: ShoppingCart, label: "Pedidos", path: "/pedidos" },
+  { icon: Truck, label: "Auditoria de Fretes", path: "/auditoria-fretes" },
   { icon: Settings, label: "Configurações", path: "/configuracoes" },
 ];
 

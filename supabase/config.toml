@@ -1,0 +1,4 @@
+project_id = "wxdapfuirtkgpbtpeopn"
+
+[functions.intelipost-proxy]
+verify_jwt = false
