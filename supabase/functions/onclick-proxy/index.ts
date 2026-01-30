@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -6,22 +7,19 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
-  }
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
-    const { action, payload } = await req.json()
+    const { action } = await req.json()
     
-    // Autenticação
+    // Configurações
     const rawKey = req.headers.get('x-onclick-token')
     const onclickKey = rawKey ? rawKey.trim() : null
-    if (!onclickKey) throw new Error('Secret Key não fornecida.')
-
     const baseUrl = "http://api.onclick.com.br:8085"
     
-    // SKU DE TESTE
-    const SKU_TESTE = "23008" 
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const supabase = createClient(supabaseUrl, supabaseKey)
 
     const headersOnclick = {
       'Content-Type': 'application/json',
@@ -31,103 +29,81 @@ serve(async (req) => {
       'businessUnit': '9'
     }
 
-    // Validação Rápida
-    const authCheck = await fetch(`${baseUrl}/api/v2/Company`, { method: 'GET', headers: headersOnclick })
-    if (!authCheck.ok) throw new Error(`Auth Error: ${await authCheck.text()}`)
-
-    let finalData = [];
-
     if (action === 'GET_PRODUCTS') {
         
-        // 1. BUSCAR PRODUTO (PM996)
-        let endpointProduct = ''
-        const skuAlvo = payload?.sku || SKU_TESTE;
-        
-        if (skuAlvo) {
-           endpointProduct = `/api/v2/Product/GetBySku/${skuAlvo}`
-        } else {
-           endpointProduct = '/api/v2/Product?limit=50' 
-        }
+        console.log("🛠️ Sincronizando e aplicando regra (-1000)...");
 
-        const respProd = await fetch(`${baseUrl}${endpointProduct}`, { method: 'GET', headers: headersOnclick });
-        
-        if (!respProd.ok) {
-             return new Response(JSON.stringify([]), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-        }
-        
-        const jsonProd = await respProd.json();
-        
-        let productsList = [];
-        if (jsonProd.products && Array.isArray(jsonProd.products)) {
-            productsList = jsonProd.products;
-        } else if (jsonProd.products === null) {
-            productsList = [];
-        }
+        // 1. BAIXAR A FILA DE ESTOQUE COMPLETA
+        let stockMap = new Map(); 
+        let skusToProcess = new Set<string>();
 
-        // 2. BUSCAR ESTOQUE COM FILTRAGEM RIGOROSA
-        finalData = await Promise.all(productsList.map(async (produto) => {
-            let estoqueFinal = 0;
-            let achouEstoque = false;
-            let debugStock = null;
-            
-            try {
-                // Chamamos a API tentando filtrar. 
-                // Se ela ignorar e mandar tudo (como aconteceu antes), nós filtramos abaixo.
-                const urlEstoque = `${baseUrl}/api/v2/Stock?sku=${produto.sku}`;
-                const respStock = await fetch(urlEstoque, { method: 'GET', headers: headersOnclick });
+        try {
+            const resp = await fetch(`${baseUrl}/api/v2/Stock?limit=100`, { method: 'GET', headers: headersOnclick });
+            if (resp.ok) {
+                const json = await resp.json();
+                if (json.stocks) {
+                    json.stocks.forEach((item: any) => {
+                        const cleanSku = item.sku.toString().trim();
+                        stockMap.set(cleanSku, item.stock);
+                        skusToProcess.add(cleanSku);
+                    });
+                }
+            }
+        } catch (e) { console.error("Erro Stock Queue:", e); }
 
-                if (respStock.ok) {
-                    const jsonStock = await respStock.json();
-                    debugStock = jsonStock; // Guarda para você ver o que veio
+        console.log(`📦 Fila de Estoque carregada: ${stockMap.size} itens.`);
 
-                    if (jsonStock.stocks && Array.isArray(jsonStock.stocks)) {
-                        
-                        // --- AQUI ESTÁ O FILTRO QUE VOCÊ PEDIU ---
-                        // Nós ignoramos a ordem e procuramos EXATAMENTE o SKU PM996 dentro da lista
-                        const itemCerto = jsonStock.stocks.find(s => 
-                            s.sku && s.sku.toString().toUpperCase().trim() === produto.sku.toString().toUpperCase().trim()
-                        );
+        // 2. PROCESSAR CADA SKU
+        if (skusToProcess.size > 0) {
+            const itemsToUpsert = await Promise.all(Array.from(skusToProcess).map(async (sku) => {
+                let nome = "Produto Sincronizado";
+                
+                // --- AQUI ESTÁ A REGRA DE NEGÓCIO ---
+                // Pega o valor da API e subtrai 1000
+                const estoqueOriginal = stockMap.get(sku) ?? 0;
+                const estoqueCalculado = estoqueOriginal - 1000;
 
-                        if (itemCerto) {
-                            // Se achou o sku na lista, pega o estoque dele
-                            estoqueFinal = itemCerto.stock || 0;
-                            achouEstoque = true;
-                            console.log(`✅ ACHOU! SKU: ${produto.sku} | Estoque: ${estoqueFinal}`);
-                        } else {
-                            // Se a API mandou uma lista mas o sku não estava nela
-                            console.log(`⚠️ Lista veio, mas SKU ${produto.sku} não estava nela.`);
+                // Busca Nome do Produto
+                try {
+                    const respProd = await fetch(`${baseUrl}/api/v2/Product/GetBySku/${sku}`, { method: 'GET', headers: headersOnclick });
+                    if (respProd.ok) {
+                        const json = await respProd.json();
+                        if (json.products && json.products.length > 0) {
+                            nome = json.products[0].productName;
                         }
                     }
-                }
-            } catch (err) {
-                console.error(`Erro estoque:`, err);
-            }
+                } catch {}
 
-            return {
-                ...produto, 
-                name: produto.productName, 
-                nome: produto.productName,
-                
-                // Valor encontrado (ou 0 se não achou)
-                estoque: estoqueFinal,
-                stock: estoqueFinal,
-                
-                // Debug para ver se funcionou
-                _debug_encontrado: achouEstoque,
-                _debug_raw: debugStock
-            };
-        }));
+                return {
+                    sku: sku,
+                    nome: nome,
+                    estoque: estoqueCalculado, // Salva já subtraído (Ex: 1008 vira 8)
+                    ultima_atualizacao: new Date().toISOString()
+                };
+            }));
 
-    } else if (action === 'GET_ORDERS') {
-        const resp = await fetch(`${baseUrl}/api/v2/Order/GetQueue?limit=20`, { headers: headersOnclick });
-        finalData = await resp.json();
-    } else {
-         return new Response(JSON.stringify({ msg: "Ação não implementada" }), { headers: corsHeaders });
+            // Salva no Supabase
+            const { error } = await supabase
+                .from('produtos_cache')
+                .upsert(itemsToUpsert, { onConflict: 'sku' });
+            
+            if (error) console.error("Erro Supabase:", error);
+        }
+
+        // 3. RETORNAR DADOS DO BANCO
+        const { data: cachedProducts, error: dbError } = await supabase
+            .from('produtos_cache')
+            .select('*')
+            .order('ultima_atualizacao', { ascending: false });
+
+        if (dbError) throw dbError;
+
+        return new Response(JSON.stringify(cachedProducts), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
     }
 
-    return new Response(JSON.stringify(finalData), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    return new Response(JSON.stringify({ msg: "Action not found" }), { headers: corsHeaders });
 
   } catch (error) {
     return new Response(JSON.stringify({ error: error.message }), {
