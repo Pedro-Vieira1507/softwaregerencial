@@ -132,7 +132,7 @@ export default function Estoque() {
                   <TableHead>SKU</TableHead>
                   <TableHead>Produto</TableHead>
                   <TableHead className="text-right">Estoque</TableHead>
-                  <TableHead className="text-right">Preço</TableHead>
+                  <TableHead className="text-right">SKU Pai</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
