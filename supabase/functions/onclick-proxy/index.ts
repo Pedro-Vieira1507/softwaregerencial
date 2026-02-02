@@ -30,12 +30,11 @@ serve(async (req) => {
 
     if (action === 'GET_PRODUCTS') {
         
-        console.log("🕵️ Iniciando Diagnóstico de SKU Pai...");
-
         let stockMap = new Map(); 
         let skusToProcess = new Set<string>();
+        let debugMap = new Map(); // Mapa temporário para guardar debug
 
-        // 1. Pega estoque
+        // 1. LEITURA DA FILA DE ESTOQUE
         try {
             const resp = await fetch(`${baseUrl}/api/v2/Stock?limit=100`, { method: 'GET', headers: headersOnclick });
             if (resp.ok) {
@@ -50,81 +49,94 @@ serve(async (req) => {
             }
         } catch (e) { console.error("Erro Stock:", e); }
 
-        // 2. Processa cada produto
+        // 2. AUTOCORREÇÃO (Busca 50 itens sem pai)
+        const { data: missingParents } = await supabase
+            .from('produtos_cache')
+            .select('sku')
+            .or('parent_sku.eq.0,parent_sku.is.null')
+            .limit(50);
+
+        if (missingParents) {
+            missingParents.forEach((p: any) => {
+                if(p.sku) skusToProcess.add(p.sku.toString().trim());
+            });
+        }
+
+        // 3. PROCESSAMENTO E SALVAMENTO
         if (skusToProcess.size > 0) {
             const itemsToUpsert = await Promise.all(Array.from(skusToProcess).map(async (sku) => {
                 let nome = "Produto Sincronizado";
                 let parentSku = "0"; 
-                
-                // Debug: Variável para guardar o que a API respondeu
-                let debugApiResponse = null;
-                let debugUrl = `${baseUrl}/api/v2/ParentSku?sku=${sku}`;
+                let debugInfo = {};
 
-                const estoqueOriginal = stockMap.get(sku) ?? 0;
-                const estoqueCalculado = estoqueOriginal - 1000;
+                let estoqueCalculado = 0;
+                if (stockMap.has(sku)) {
+                     estoqueCalculado = (stockMap.get(sku) ?? 0) - 1000;
+                } else {
+                     const { data: current } = await supabase.from('produtos_cache').select('estoque, nome').eq('sku', sku).single();
+                     estoqueCalculado = current?.estoque || 0;
+                     if (current?.nome) nome = current.nome;
+                }
 
                 try {
-                    // A. Dados Básicos
-                    const respProd = await fetch(`${baseUrl}/api/v2/Product/GetBySku/${sku}`, { method: 'GET', headers: headersOnclick });
-                    if (respProd.ok) {
-                        const json = await respProd.json();
-                        if (json.products && json.products.length > 0) nome = json.products[0].productName;
-                    }
-
-                    // B. SKU PAI (COM LOG DE ERRO/SUCESSO)
-                    const respParent = await fetch(debugUrl, { method: 'GET', headers: headersOnclick });
-                    const textParent = await respParent.text(); // Pega texto puro para não falhar no JSON.parse
+                    const urlParent = `${baseUrl}/api/v2/ParentSku?sku=${encodeURIComponent(sku)}`;
+                    const respParent = await fetch(urlParent, { method: 'GET', headers: headersOnclick });
+                    const textParent = await respParent.text();
                     
                     try {
                         const jsonParent = JSON.parse(textParent);
-                        debugApiResponse = jsonParent; // Guarda o JSON real para você ver
+                        // Guarda o debug para mostrar no final
+                        debugInfo = { status: respParent.status, response: jsonParent };
 
                         if (respParent.ok && jsonParent.success && jsonParent.parentSku) {
                             parentSku = jsonParent.parentSku;
                         }
-                    } catch (parseError) {
-                        debugApiResponse = { error: "JSON Inválido", raw: textParent };
+                    } catch {
+                        debugInfo = { error: "JSON Inválido", raw: textParent };
                     }
+                } catch (err) { debugInfo = { error: err.message }; }
 
-                } catch (err) {
-                    debugApiResponse = { error: "Falha na Requisição", details: err.message };
-                }
+                // Registra o debug no mapa
+                debugMap.set(sku, debugInfo);
 
-                // C. Retorna objeto para o Banco + LOG
                 return {
                     sku: sku,
                     nome: nome,
                     estoque: estoqueCalculado,
                     parent_sku: parentSku,
-                    ultima_atualizacao: new Date().toISOString(),
-                    
-                    // CAMPO SECRETO DE DEBUG (Vai aparecer no console do navegador, mas não salvará no banco se a coluna não existir)
-                    _debug_parent_api: {
-                        url: debugUrl,
-                        response: debugApiResponse
-                    }
+                    ultima_atualizacao: new Date().toISOString()
                 };
             }));
 
-            // Tenta salvar no banco (removemos o campo _debug antes de salvar para não dar erro)
-            const itemsToSave = itemsToUpsert.map(({ _debug_parent_api, ...rest }) => rest);
-
+            // Salva no banco (SEM o campo debug, pois o banco não tem essa coluna)
             const { error } = await supabase
                 .from('produtos_cache')
-                .upsert(itemsToSave, { onConflict: 'sku' });
+                .upsert(itemsToUpsert, { onConflict: 'sku' });
             
-            if (error) console.error("Erro Supabase:", error);
-
-            // RETORNO PARA O FRONTEND (Inclui o _debug)
-            // Aqui mandamos a lista completa com o campo _debug para você analisar
-            return new Response(JSON.stringify(itemsToUpsert), {
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            })
+            if (error) console.error("Erro ao salvar:", error);
         }
-        
-        // Se não tiver nada para processar, retorna o cache do banco
-        const { data } = await supabase.from('produtos_cache').select('*');
-        return new Response(JSON.stringify(data), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
+        // 4. RETORNO FINAL (SEMPRE A LISTA COMPLETA)
+        const { data: fullList, error: dbError } = await supabase
+            .from('produtos_cache')
+            .select('*')
+            .order('nome', { ascending: true });
+
+        if (dbError) throw dbError;
+
+        // COMBINAÇÃO MÁGICA: Lista do Banco + Debug da Memória
+        // Se o item acabou de ser processado, anexa o _debug_api nele para o frontend ver
+        const responseWithDebug = fullList?.map((item: any) => {
+            const debug = debugMap.get(item.sku); // Tenta achar debug recente
+            if (debug) {
+                return { ...item, _debug_api: debug };
+            }
+            return item;
+        });
+
+        return new Response(JSON.stringify(responseWithDebug), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
     }
 
     return new Response(JSON.stringify({ msg: "Action not found" }), { headers: corsHeaders });
