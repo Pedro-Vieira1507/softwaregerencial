@@ -12,7 +12,7 @@ import { RefreshCw, Search, Package, Edit2, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
-// Função auxiliar para buscar credenciais (pode ser movida para um hook)
+// Função auxiliar para buscar credenciais
 const getApiCredentials = () => {
   return {
     url: localStorage.getItem("onclick_base_url"),
@@ -29,7 +29,7 @@ export default function Estoque() {
   const queryClient = useQueryClient();
 
   // 1. Busca dados reais via Edge Function
-  const { data: products = [], isLoading, isError, refetch } = useQuery({
+  const { data: products = [], isLoading, isError, refetch, isRefetching } = useQuery({
     queryKey: ['onclick-products'],
     queryFn: async () => {
       const { url, token } = getApiCredentials();
@@ -45,18 +45,20 @@ export default function Estoque() {
 
       if (error) throw error;
       
-      // Mapeamento: Onde o Onclick retorna 'descricao', nós usamos 'nome'
-      // Ajuste os campos da esquerda (api) conforme o JSON real do Postman
       return Array.isArray(data) ? data.map((item: any) => ({
         id: item.sku, 
         sku: item.sku,
         nome: item.nome,
         estoque: Number(item.estoque),
-        // Mapeia o campo do banco (parent_sku) para o frontend (parentSku)
         parentSku: item.parent_sku || "0", 
         ultimaSync: new Date(item.ultima_atualizacao).toLocaleString("pt-BR")
       })) : [];
-    }
+    },
+    // Configurações de Polling (Atualização Automática)
+    staleTime: 0, 
+    refetchInterval: 60000, 
+    refetchIntervalInBackground: true, 
+    refetchOnWindowFocus: true 
   });
 
   // 2. Mutação para atualizar estoque
@@ -98,7 +100,7 @@ export default function Estoque() {
     <div>
       <PageHeader title="Gestão de Estoque" description="Sincronizado com Onclick ERP">
         <Button onClick={() => refetch()} disabled={isLoading}>
-          <RefreshCw className={cn("w-4 h-4 mr-2", isLoading && "animate-spin")} />
+          <RefreshCw className={cn("w-4 h-4 mr-2", (isLoading || isRefetching) && "animate-spin")} />
           Atualizar Lista
         </Button>
       </PageHeader>
@@ -131,6 +133,7 @@ export default function Estoque() {
                 <TableRow>
                   <TableHead>SKU</TableHead>
                   <TableHead>Produto</TableHead>
+                  {/* Cabeçalhos Centralizados */}
                   <TableHead className="text-center">Estoque</TableHead>
                   <TableHead className="text-center whitespace-nowrap">SKU Pai</TableHead>
                 </TableRow>
@@ -140,13 +143,16 @@ export default function Estoque() {
                   <TableRow key={product.id || product.sku}>
                     <TableCell className="font-mono text-sm">{product.sku}</TableCell>
                     <TableCell className="font-medium">{product.nome}</TableCell>
-                    <TableCell className="text-right">
+                    
+                    {/* Célula Estoque: Centralizada */}
+                    <TableCell className="text-center">
                       <span className={cn("font-medium", product.estoque < product.estoqueMinimo && "text-warning")}>
                         {product.estoque}
                       </span>
                     </TableCell>
-                    <TableCell>
-                      {/* Lógica: Se for "0" ou nulo, mostra "Não". Senão, mostra o código puro */}
+
+                    {/* Célula SKU Pai: Centralizada */}
+                    <TableCell className="text-center">
                       {product.parentSku === "0" || !product.parentSku 
                         ? "Não" 
                         : product.parentSku}
