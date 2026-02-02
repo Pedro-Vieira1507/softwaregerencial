@@ -12,6 +12,7 @@ serve(async (req) => {
   try {
     const { action } = await req.json()
     
+    // Configurações
     const rawKey = req.headers.get('x-onclick-token')
     const onclickKey = rawKey ? rawKey.trim() : null
     const baseUrl = "http://api.onclick.com.br:8085"
@@ -32,7 +33,7 @@ serve(async (req) => {
         
         let stockMap = new Map(); 
         let skusToProcess = new Set<string>();
-        let debugMap = new Map(); // Mapa temporário para guardar debug
+        let debugMap = new Map(); // Mapa para guardar o status da API
 
         // 1. LEITURA DA FILA DE ESTOQUE
         try {
@@ -49,7 +50,8 @@ serve(async (req) => {
             }
         } catch (e) { console.error("Erro Stock:", e); }
 
-        // 2. AUTOCORREÇÃO (Busca 50 itens sem pai)
+        // 2. AUTOCORREÇÃO (Pega 50 produtos que ainda estão como 'Não'/'0')
+        // Isso garante que o DP10 seja pego eventualmente
         const { data: missingParents } = await supabase
             .from('produtos_cache')
             .select('sku')
@@ -62,13 +64,14 @@ serve(async (req) => {
             });
         }
 
-        // 3. PROCESSAMENTO E SALVAMENTO
+        // 3. PROCESSAMENTO (API -> BANCO)
         if (skusToProcess.size > 0) {
             const itemsToUpsert = await Promise.all(Array.from(skusToProcess).map(async (sku) => {
                 let nome = "Produto Sincronizado";
                 let parentSku = "0"; 
                 let debugInfo = {};
 
+                // Lógica de Estoque (Preserva o banco se não veio da fila)
                 let estoqueCalculado = 0;
                 if (stockMap.has(sku)) {
                      estoqueCalculado = (stockMap.get(sku) ?? 0) - 1000;
@@ -79,13 +82,13 @@ serve(async (req) => {
                 }
 
                 try {
+                    // Busca PAI na API
                     const urlParent = `${baseUrl}/api/v2/ParentSku?sku=${encodeURIComponent(sku)}`;
                     const respParent = await fetch(urlParent, { method: 'GET', headers: headersOnclick });
                     const textParent = await respParent.text();
                     
                     try {
                         const jsonParent = JSON.parse(textParent);
-                        // Guarda o debug para mostrar no final
                         debugInfo = { status: respParent.status, response: jsonParent };
 
                         if (respParent.ok && jsonParent.success && jsonParent.parentSku) {
@@ -96,19 +99,19 @@ serve(async (req) => {
                     }
                 } catch (err) { debugInfo = { error: err.message }; }
 
-                // Registra o debug no mapa
+                // Guarda o debug
                 debugMap.set(sku, debugInfo);
 
                 return {
                     sku: sku,
                     nome: nome,
                     estoque: estoqueCalculado,
-                    parent_sku: parentSku,
+                    parent_sku: parentSku, // AGORA VAI SALVAR NO BANCO!
                     ultima_atualizacao: new Date().toISOString()
                 };
             }));
 
-            // Salva no banco (SEM o campo debug, pois o banco não tem essa coluna)
+            // Salva no banco (Agora a coluna existe, então vai funcionar!)
             const { error } = await supabase
                 .from('produtos_cache')
                 .upsert(itemsToUpsert, { onConflict: 'sku' });
@@ -116,7 +119,7 @@ serve(async (req) => {
             if (error) console.error("Erro ao salvar:", error);
         }
 
-        // 4. RETORNO FINAL (SEMPRE A LISTA COMPLETA)
+        // 4. LEITURA FINAL (Lê tudo do banco)
         const { data: fullList, error: dbError } = await supabase
             .from('produtos_cache')
             .select('*')
@@ -124,14 +127,10 @@ serve(async (req) => {
 
         if (dbError) throw dbError;
 
-        // COMBINAÇÃO MÁGICA: Lista do Banco + Debug da Memória
-        // Se o item acabou de ser processado, anexa o _debug_api nele para o frontend ver
+        // Anexa o debug nos itens processados para você conferir no Network
         const responseWithDebug = fullList?.map((item: any) => {
-            const debug = debugMap.get(item.sku); // Tenta achar debug recente
-            if (debug) {
-                return { ...item, _debug_api: debug };
-            }
-            return item;
+            const debug = debugMap.get(item.sku);
+            return debug ? { ...item, _debug_api: debug } : item;
         });
 
         return new Response(JSON.stringify(responseWithDebug), {
