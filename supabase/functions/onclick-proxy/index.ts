@@ -31,9 +31,9 @@ serve(async (req) => {
 
     if (action === 'GET_PRODUCTS') {
         
-        console.log("🛠️ Sincronizando Estoque + SKU Pai...");
+        console.log("🛠️ Sincronizando e aplicando regra (-1000)...");
 
-        // 1. BAIXAR A FILA DE ESTOQUE
+        // 1. BAIXAR A FILA DE ESTOQUE COMPLETA
         let stockMap = new Map(); 
         let skusToProcess = new Set<string>();
 
@@ -51,18 +51,20 @@ serve(async (req) => {
             }
         } catch (e) { console.error("Erro Stock Queue:", e); }
 
+        console.log(`📦 Fila de Estoque carregada: ${stockMap.size} itens.`);
+
         // 2. PROCESSAR CADA SKU
         if (skusToProcess.size > 0) {
             const itemsToUpsert = await Promise.all(Array.from(skusToProcess).map(async (sku) => {
                 let nome = "Produto Sincronizado";
-                let parentSku = "0"; // Valor padrão
                 
-                // Regra de Estoque (-1000)
+                // --- AQUI ESTÁ A REGRA DE NEGÓCIO ---
+                // Pega o valor da API e subtrai 1000
                 const estoqueOriginal = stockMap.get(sku) ?? 0;
                 const estoqueCalculado = estoqueOriginal - 1000;
 
+                // Busca Nome do Produto
                 try {
-                    // A. BUSCA DETALHES DO PRODUTO (NOME)
                     const respProd = await fetch(`${baseUrl}/api/v2/Product/GetBySku/${sku}`, { method: 'GET', headers: headersOnclick });
                     if (respProd.ok) {
                         const json = await respProd.json();
@@ -70,26 +72,12 @@ serve(async (req) => {
                             nome = json.products[0].productName;
                         }
                     }
-
-                    // B. BUSCA SKU PAI (NOVO ENDPOINT)
-                    const respParent = await fetch(`${baseUrl}/api/v2/ParentSku?sku=${sku}`, { method: 'GET', headers: headersOnclick });
-                    if (respParent.ok) {
-                        const jsonParent = await respParent.json();
-                        // Se vier null ou vazio, mantemos "0"
-                        if (jsonParent.success && jsonParent.parentSku) {
-                            parentSku = jsonParent.parentSku;
-                        }
-                    }
-
-                } catch (err) {
-                    console.error(`Erro ao enriquecer SKU ${sku}:`, err);
-                }
+                } catch {}
 
                 return {
                     sku: sku,
                     nome: nome,
-                    estoque: estoqueCalculado,
-                    parent_sku: parentSku, // Campo novo no banco
+                    estoque: estoqueCalculado, // Salva já subtraído (Ex: 1008 vira 8)
                     ultima_atualizacao: new Date().toISOString()
                 };
             }));

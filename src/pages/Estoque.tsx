@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/lib/utils"; // Ajuste o import se criou em src/lib/supabase.ts
+import { supabase } from "@/lib/utils"; 
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,7 +28,7 @@ export default function Estoque() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // 1. Busca dados reais via Edge Function
+  // 1. Busca dados reais via Edge Function (Polling de 5 segundos)
   const { data: products = [], isLoading, isError, refetch, isRefetching } = useQuery({
     queryKey: ['onclick-products'],
     queryFn: async () => {
@@ -54,9 +54,9 @@ export default function Estoque() {
         ultimaSync: new Date(item.ultima_atualizacao).toLocaleString("pt-BR")
       })) : [];
     },
-    // Configurações de Polling (Atualização Automática)
-    staleTime: 0, 
-    refetchInterval: 60000, 
+    // Configurações de Atualização Automática
+    staleTime: 0,                 // Dados sempre velhos (força busca)
+    refetchInterval: 5000,        // Atualiza a cada 5 segundos (para teste rápido)
     refetchIntervalInBackground: true, 
     refetchOnWindowFocus: true 
   });
@@ -101,7 +101,7 @@ export default function Estoque() {
       <PageHeader title="Gestão de Estoque" description="Sincronizado com Onclick ERP">
         <Button onClick={() => refetch()} disabled={isLoading}>
           <RefreshCw className={cn("w-4 h-4 mr-2", (isLoading || isRefetching) && "animate-spin")} />
-          Atualizar Lista
+          {isRefetching ? "Atualizando..." : "Atualizar Lista"}
         </Button>
       </PageHeader>
 
@@ -133,7 +133,6 @@ export default function Estoque() {
                 <TableRow>
                   <TableHead>SKU</TableHead>
                   <TableHead>Produto</TableHead>
-                  {/* Cabeçalhos Centralizados */}
                   <TableHead className="text-center">Estoque</TableHead>
                   <TableHead className="text-center whitespace-nowrap">SKU Pai</TableHead>
                 </TableRow>
@@ -144,19 +143,18 @@ export default function Estoque() {
                     <TableCell className="font-mono text-sm">{product.sku}</TableCell>
                     <TableCell className="font-medium">{product.nome}</TableCell>
                     
-                    {/* Célula Estoque: Centralizada */}
                     <TableCell className="text-center">
                       <span className={cn("font-medium", product.estoque < product.estoqueMinimo && "text-warning")}>
                         {product.estoque}
                       </span>
                     </TableCell>
 
-                    {/* Célula SKU Pai: Centralizada */}
                     <TableCell className="text-center">
                       {product.parentSku === "0" || !product.parentSku 
                         ? "Não" 
                         : product.parentSku}
                     </TableCell>
+
                   </TableRow>
                 ))}
               </TableBody>
