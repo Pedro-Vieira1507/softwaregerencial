@@ -48,13 +48,13 @@ export default function Estoque() {
       // Mapeamento: Onde o Onclick retorna 'descricao', nós usamos 'nome'
       // Ajuste os campos da esquerda (api) conforme o JSON real do Postman
       return Array.isArray(data) ? data.map((item: any) => ({
-        id: item.id || item.codigo, 
-        sku: item.sku || item.referencia,
-        nome: item.descricao || item.nome,
-        estoque: Number(item.saldo_estoque || item.estoque || 0),
-        estoqueMinimo: Number(item.estoque_minimo || 10),
-        preco: Number(item.preco_venda || 0),
-        ultimaSync: new Date().toLocaleString("pt-BR")
+        id: item.sku, 
+        sku: item.sku,
+        nome: item.nome,
+        estoque: Number(item.estoque),
+        // Mapeia o campo do banco (parent_sku) para o frontend (parentSku)
+        parentSku: item.parent_sku || "0", 
+        ultimaSync: new Date(item.ultima_atualizacao).toLocaleString("pt-BR")
       })) : [];
     }
   });
@@ -131,9 +131,8 @@ export default function Estoque() {
                 <TableRow>
                   <TableHead>SKU</TableHead>
                   <TableHead>Produto</TableHead>
-                  <TableHead className="text-right">Estoque</TableHead>
-                  <TableHead className="text-right">SKU Pai</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
+                  <TableHead className="text-center">Estoque</TableHead>
+                  <TableHead className="text-center whitespace-nowrap">SKU Pai</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -146,13 +145,11 @@ export default function Estoque() {
                         {product.estoque}
                       </span>
                     </TableCell>
-                    <TableCell className="text-right">
-                      {product.preco.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" onClick={() => handleEditStock(product)}>
-                        <Edit2 className="w-4 h-4 mr-1" /> Editar
-                      </Button>
+                    <TableCell>
+                      {/* Lógica: Se for "0" ou nulo, mostra "Não". Senão, mostra o código puro */}
+                      {product.parentSku === "0" || !product.parentSku 
+                        ? "Não" 
+                        : product.parentSku}
                     </TableCell>
                   </TableRow>
                 ))}

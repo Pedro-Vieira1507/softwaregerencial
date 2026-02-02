@@ -6,6 +6,10 @@ create table if not exists produtos_cache (
   ultima_atualizacao timestamptz default now()
 );
 
+-- Adiciona a coluna parent_sku na tabela de cache
+ALTER TABLE produtos_cache 
+ADD COLUMN IF NOT EXISTS parent_sku text DEFAULT '0';
+
 -- Habilita segurança (RLS)
 alter table produtos_cache enable row level security;
 
