@@ -12,7 +12,6 @@ serve(async (req) => {
   try {
     const { action } = await req.json()
     
-    // Configurações
     const rawKey = req.headers.get('x-onclick-token')
     const onclickKey = rawKey ? rawKey.trim() : null
     const baseUrl = "http://api.onclick.com.br:8085"
@@ -31,12 +30,12 @@ serve(async (req) => {
 
     if (action === 'GET_PRODUCTS') {
         
-        console.log("🛠️ Sincronizando e aplicando regra (-1000)...");
+        console.log("🕵️ Iniciando Diagnóstico de SKU Pai...");
 
-        // 1. BAIXAR A FILA DE ESTOQUE COMPLETA
         let stockMap = new Map(); 
         let skusToProcess = new Set<string>();
 
+        // 1. Pega estoque
         try {
             const resp = await fetch(`${baseUrl}/api/v2/Stock?limit=100`, { method: 'GET', headers: headersOnclick });
             if (resp.ok) {
@@ -49,58 +48,83 @@ serve(async (req) => {
                     });
                 }
             }
-        } catch (e) { console.error("Erro Stock Queue:", e); }
+        } catch (e) { console.error("Erro Stock:", e); }
 
-        console.log(`📦 Fila de Estoque carregada: ${stockMap.size} itens.`);
-
-        // 2. PROCESSAR CADA SKU
+        // 2. Processa cada produto
         if (skusToProcess.size > 0) {
             const itemsToUpsert = await Promise.all(Array.from(skusToProcess).map(async (sku) => {
                 let nome = "Produto Sincronizado";
+                let parentSku = "0"; 
                 
-                // --- AQUI ESTÁ A REGRA DE NEGÓCIO ---
-                // Pega o valor da API e subtrai 1000
+                // Debug: Variável para guardar o que a API respondeu
+                let debugApiResponse = null;
+                let debugUrl = `${baseUrl}/api/v2/ParentSku?sku=${sku}`;
+
                 const estoqueOriginal = stockMap.get(sku) ?? 0;
                 const estoqueCalculado = estoqueOriginal - 1000;
 
-                // Busca Nome do Produto
                 try {
+                    // A. Dados Básicos
                     const respProd = await fetch(`${baseUrl}/api/v2/Product/GetBySku/${sku}`, { method: 'GET', headers: headersOnclick });
                     if (respProd.ok) {
                         const json = await respProd.json();
-                        if (json.products && json.products.length > 0) {
-                            nome = json.products[0].productName;
-                        }
+                        if (json.products && json.products.length > 0) nome = json.products[0].productName;
                     }
-                } catch {}
 
+                    // B. SKU PAI (COM LOG DE ERRO/SUCESSO)
+                    const respParent = await fetch(debugUrl, { method: 'GET', headers: headersOnclick });
+                    const textParent = await respParent.text(); // Pega texto puro para não falhar no JSON.parse
+                    
+                    try {
+                        const jsonParent = JSON.parse(textParent);
+                        debugApiResponse = jsonParent; // Guarda o JSON real para você ver
+
+                        if (respParent.ok && jsonParent.success && jsonParent.parentSku) {
+                            parentSku = jsonParent.parentSku;
+                        }
+                    } catch (parseError) {
+                        debugApiResponse = { error: "JSON Inválido", raw: textParent };
+                    }
+
+                } catch (err) {
+                    debugApiResponse = { error: "Falha na Requisição", details: err.message };
+                }
+
+                // C. Retorna objeto para o Banco + LOG
                 return {
                     sku: sku,
                     nome: nome,
-                    estoque: estoqueCalculado, // Salva já subtraído (Ex: 1008 vira 8)
-                    ultima_atualizacao: new Date().toISOString()
+                    estoque: estoqueCalculado,
+                    parent_sku: parentSku,
+                    ultima_atualizacao: new Date().toISOString(),
+                    
+                    // CAMPO SECRETO DE DEBUG (Vai aparecer no console do navegador, mas não salvará no banco se a coluna não existir)
+                    _debug_parent_api: {
+                        url: debugUrl,
+                        response: debugApiResponse
+                    }
                 };
             }));
 
-            // Salva no Supabase
+            // Tenta salvar no banco (removemos o campo _debug antes de salvar para não dar erro)
+            const itemsToSave = itemsToUpsert.map(({ _debug_parent_api, ...rest }) => rest);
+
             const { error } = await supabase
                 .from('produtos_cache')
-                .upsert(itemsToUpsert, { onConflict: 'sku' });
+                .upsert(itemsToSave, { onConflict: 'sku' });
             
             if (error) console.error("Erro Supabase:", error);
+
+            // RETORNO PARA O FRONTEND (Inclui o _debug)
+            // Aqui mandamos a lista completa com o campo _debug para você analisar
+            return new Response(JSON.stringify(itemsToUpsert), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            })
         }
-
-        // 3. RETORNAR DADOS DO BANCO
-        const { data: cachedProducts, error: dbError } = await supabase
-            .from('produtos_cache')
-            .select('*')
-            .order('ultima_atualizacao', { ascending: false });
-
-        if (dbError) throw dbError;
-
-        return new Response(JSON.stringify(cachedProducts), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        })
+        
+        // Se não tiver nada para processar, retorna o cache do banco
+        const { data } = await supabase.from('produtos_cache').select('*');
+        return new Response(JSON.stringify(data), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     return new Response(JSON.stringify({ msg: "Action not found" }), { headers: corsHeaders });
