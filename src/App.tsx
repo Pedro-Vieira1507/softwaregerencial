@@ -6,10 +6,12 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import Dashboard from "./pages/Dashboard";
 import Estoque from "./pages/Estoque";
-import Pedidos from "./pages/Pedidos";
-import AuditoriaFretes from "./pages/AuditoriaFretes";
+import Rastreio from "./pages/Rastreio";
 import Configuracoes from "./pages/Configuracoes";
 import NotFound from "./pages/NotFound";
+
+// Aqui está a correção: Importar Pedidos apenas uma vez
+import Pedidos from "./pages/pedidos"; 
 
 const queryClient = new QueryClient();
 
@@ -23,8 +25,9 @@ const App = () => (
           <Route element={<MainLayout />}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/estoque" element={<Estoque />} />
+            <Route path="/rastreio" element={<Rastreio />} />
+            {/* Esta rota vai carregar a integração com Magento */}
             <Route path="/pedidos" element={<Pedidos />} />
-            <Route path="/auditoria-fretes" element={<AuditoriaFretes />} />
             <Route path="/configuracoes" element={<Configuracoes />} />
           </Route>
           <Route path="*" element={<NotFound />} />

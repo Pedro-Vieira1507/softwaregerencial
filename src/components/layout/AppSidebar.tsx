@@ -16,8 +16,8 @@ import { useState } from "react";
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
   { icon: Package, label: "Estoque", path: "/estoque" },
-  { icon: ShoppingCart, label: "Pedidos", path: "/pedidos" },
-  { icon: Truck, label: "Auditoria de Fretes", path: "/auditoria-fretes" },
+  { icon: Truck, label: "Rastreio", path: "/rastreio" },
+  { icon: ShoppingCart, label: "Pedidos Site", path: "/pedidos" },
   { icon: Settings, label: "Configurações", path: "/configuracoes" },
 ];
 

@@ -1,390 +1,125 @@
-// Edge function to proxy requests to Intelipost API
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
-
-interface IntelipostShipment {
-  order_number: string;
-  created: string;
-  logistic_provider_name: string;
-  logistic_provider_cnpj?: string;
-  quote_price: number;
-  invoice_price?: number;
-  cte_number?: string;
-  invoice_number?: string;
-  weight: number;
-  destination_city: string;
-  destination_state: string;
-  status: string;
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-onclick-url, x-onclick-token, x-intelipost-url, api-key, x-supabase-client-platform, x-supabase-client-version',
 }
 
-interface IntelipostResponse {
-  status: string;
-  content: {
-    shipments?: IntelipostShipment[];
-    shipment?: IntelipostShipment;
-    page?: {
-      total_pages?: number;
-      current?: number;
-      total_elements?: number;
-    };
-  };
-}
+const INTELIPOST_OFFICIAL_URL = "https://api.intelipost.com.br/api/v1/";
 
-interface AuditOrder {
-  id: string;
-  orderNumber: string;
-  orderDate: string;
-  carrier: string;
-  carrierCnpj: string;
-  quotePrice: number;
-  invoicePrice: number;
-  difference: number;
-  differencePercentage: number;
-  status: 'auditado' | 'pendente' | 'divergente';
-  cteNumber?: string;
-  invoiceNumber?: string;
-  weight: number;
-  destination: {
-    city: string;
-    state: string;
-  };
-}
+serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
-// Function to fetch all pages of shipments with date filters
-async function fetchAllShipments(
-  baseUrl: string, 
-  apiKey: string,
-  dateFrom?: string,
-  dateTo?: string,
-  maxPages: number = 10
-): Promise<IntelipostShipment[]> {
-  const allShipments: IntelipostShipment[] = [];
-  let currentPage = 0;
-  let totalPages = 1;
+  try {
+    let bodyJson = {};
+    try { bodyJson = await req.json(); } catch {}
+    const { action, invoice_number, order_number } = bodyJson as any; // Adicionado order_number
 
-  // Build the search request body - Intelipost uses POST for search
-  const buildSearchBody = (page: number) => {
-    const body: Record<string, unknown> = {
-      page,
-      page_size: 100,
-    };
+    const reqHeaders = req.headers;
+    const apiKey = reqHeaders.get('api-key') || Deno.env.get('INTELIPOST_API_KEY');
 
-    // Add date filters if provided
-    if (dateFrom || dateTo) {
-      body.created = {};
-      if (dateFrom) {
-        (body.created as Record<string, string>).gte = dateFrom;
-      }
-      if (dateTo) {
-        (body.created as Record<string, string>).lte = dateTo;
-      }
-    }
+    if (!apiKey) throw new Error("API Key da Intelipost não fornecida.");
 
-    return body;
-  };
-
-  while (currentPage < totalPages && currentPage < maxPages) {
-    console.log(`Fetching page ${currentPage + 1} of shipments...`);
-    
-    const response = await fetch(`${baseUrl}/shipment_order/search`, {
-      method: 'POST',
-      headers: {
+    const intelipostHeaders = {
         'Content-Type': 'application/json',
-        'api-key': apiKey,
         'Accept': 'application/json',
-      },
-      body: JSON.stringify(buildSearchBody(currentPage)),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`Failed to fetch page ${currentPage + 1}:`, errorText);
-      throw new Error(`Failed to fetch shipments: ${errorText}`);
-    }
-
-    const data: IntelipostResponse = await response.json();
-    
-    if (data.content?.shipments) {
-      allShipments.push(...data.content.shipments);
-    }
-
-    // Update pagination info
-    if (data.content?.page) {
-      totalPages = data.content.page.total_pages || 1;
-      console.log(`Page ${currentPage + 1}/${totalPages}, total elements: ${data.content.page.total_elements}`);
-    }
-
-    currentPage++;
-  }
-
-  console.log(`Fetched ${allShipments.length} shipments total`);
-  return allShipments;
-}
-
-// Function to sync audit data - fetches shipments and compares quote vs invoice
-async function syncAuditData(
-  baseUrl: string, 
-  apiKey: string,
-  dateFrom?: string,
-  dateTo?: string
-) {
-  try {
-    // Fetch shipments with date filters
-    const shipments = await fetchAllShipments(baseUrl, apiKey, dateFrom, dateTo);
-
-    // Process and calculate discrepancies
-    const auditedOrders: AuditOrder[] = shipments.map((shipment: IntelipostShipment) => {
-      const quotePrice = shipment.quote_price || 0;
-      const invoicePrice = shipment.invoice_price || 0;
-      const difference = invoicePrice - quotePrice;
-      const differencePercentage = quotePrice > 0 ? (difference / quotePrice) * 100 : 0;
-
-      let status: 'auditado' | 'pendente' | 'divergente' = 'pendente';
-      if (invoicePrice > 0) {
-        status = Math.abs(difference) > 0.01 ? 'divergente' : 'auditado';
-      }
-
-      return {
-        id: shipment.order_number,
-        orderNumber: shipment.order_number,
-        orderDate: shipment.created,
-        carrier: shipment.logistic_provider_name || 'N/A',
-        carrierCnpj: shipment.logistic_provider_cnpj || '',
-        quotePrice,
-        invoicePrice,
-        difference,
-        differencePercentage,
-        status,
-        cteNumber: shipment.cte_number,
-        invoiceNumber: shipment.invoice_number,
-        weight: shipment.weight || 0,
-        destination: {
-          city: shipment.destination_city || 'N/A',
-          state: shipment.destination_state || 'N/A',
-        },
-      };
-    });
-
-    // Calculate summary stats
-    const totalOrders = auditedOrders.filter((o) => o.status !== 'pendente').length;
-    const totalDiscrepancy = auditedOrders
-      .filter((o) => o.difference > 0)
-      .reduce((sum, o) => sum + o.difference, 0);
-
-    // Find carrier with most divergence
-    const carrierDivergence: Record<string, { total: number; count: number }> = {};
-    auditedOrders.forEach((order) => {
-      if (order.difference > 0) {
-        if (!carrierDivergence[order.carrier]) {
-          carrierDivergence[order.carrier] = { total: 0, count: 0 };
-        }
-        carrierDivergence[order.carrier].total += order.difference;
-        carrierDivergence[order.carrier].count += 1;
-      }
-    });
-
-    const carrierWithMost = Object.entries(carrierDivergence)
-      .sort(([, a], [, b]) => b.total - a.total)[0];
-
-    return {
-      success: true,
-      data: {
-        orders: auditedOrders,
-        stats: {
-          totalOrders,
-          totalDiscrepancy,
-          carrierWithMostDivergence: carrierWithMost
-            ? {
-                name: carrierWithMost[0],
-                totalDivergence: carrierWithMost[1].total,
-                orderCount: carrierWithMost[1].count,
-              }
-            : { name: '-', totalDivergence: 0, orderCount: 0 },
-        },
-        syncedAt: new Date().toISOString(),
-        totalRecords: auditedOrders.length,
-      },
+        'api-key': apiKey,
+        'platform': 'SoftwareGerencial',
+        'platform-version': '1.0.0'
     };
-  } catch (err: unknown) {
-    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-    console.error('Sync audit error:', err);
-    return {
-      success: false,
-      error: errorMessage,
-    };
-  }
-}
 
-Deno.serve(async (req) => {
-  // Handle CORS preflight
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
+    console.log(`[Proxy] Ação: ${action}`);
 
-  try {
-    // Get Intelipost credentials from secrets
-    const INTELIPOST_API_KEY = Deno.env.get('INTELIPOST_API_KEY');
-    const INTELIPOST_BASE_URL = Deno.env.get('INTELIPOST_BASE_URL') || 'https://api.intelipost.com.br/api/v1';
-
-    if (!INTELIPOST_API_KEY) {
-      return new Response(
-        JSON.stringify({ error: 'Intelipost API key not configured' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Parse request
-    const url = new URL(req.url);
-    const action = url.searchParams.get('action');
+    // ... (MANTENHA AS AÇÕES GET_SHIPMENTS, SEARCH_BY_INVOICE, TEST_CONNECTION AQUI IGUAIS AO QUE ESTAVAM) ...
+    // Estou omitindo para economizar espaço, mas NÃO APAGUE o código anterior dessas ações.
     
-    // Get date filters from query params
-    const dateFrom = url.searchParams.get('date_from') || undefined;
-    const dateTo = url.searchParams.get('date_to') || undefined;
-
-    // Route to appropriate action
-    switch (action) {
-      case 'list-shipments': {
-        // List shipments with optional date filters using POST search
-        const page = parseInt(url.searchParams.get('page') || '0', 10);
-        const pageSize = parseInt(url.searchParams.get('page_size') || '50', 10);
-        
-        const searchBody: Record<string, unknown> = {
-          page,
-          page_size: pageSize,
-        };
-
-        if (dateFrom || dateTo) {
-          searchBody.created = {};
-          if (dateFrom) {
-            (searchBody.created as Record<string, string>).gte = dateFrom;
-          }
-          if (dateTo) {
-            (searchBody.created as Record<string, string>).lte = dateTo;
-          }
-        }
-
-        const response = await fetch(`${INTELIPOST_BASE_URL}/shipment_order/search`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'api-key': INTELIPOST_API_KEY,
-            'Accept': 'application/json',
-          },
-          body: JSON.stringify(searchBody),
+    // --- AÇÃO 1: Listagem Geral (POST) ---
+    if (action === 'GET_SHIPMENTS') {
+        const resp = await fetch(`${INTELIPOST_OFFICIAL_URL}shipment_order/search`, {
+            method: 'POST',
+            headers: intelipostHeaders,
+            body: JSON.stringify({ "page": 1, "page_size": 50, "sort": "created:desc" })
         });
-
-        const responseData = await response.json();
-        
-        if (!response.ok) {
-          return new Response(
-            JSON.stringify({ error: 'Intelipost API error', details: responseData }),
-            { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
+        if (!resp.ok) {
+             const txt = await resp.text();
+             throw new Error(`Erro Listagem [${resp.status}]: ${txt}`);
         }
-
-        return new Response(
-          JSON.stringify(responseData),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      case 'get-shipment': {
-        // Get single shipment details
-        const orderId = url.searchParams.get('order_id');
-        if (!orderId) {
-          return new Response(
-            JSON.stringify({ error: 'order_id is required' }),
-            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-
-        const response = await fetch(`${INTELIPOST_BASE_URL}/shipment_order/${orderId}`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'api-key': INTELIPOST_API_KEY,
-            'Accept': 'application/json',
-          },
-        });
-
-        const responseData = await response.json();
-        return new Response(
-          JSON.stringify(responseData),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      case 'get-invoices': {
-        // Get invoice/CT-e information - also uses POST
-        const invoicePage = parseInt(url.searchParams.get('page') || '0', 10);
-        
-        const response = await fetch(`${INTELIPOST_BASE_URL}/invoice/search`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'api-key': INTELIPOST_API_KEY,
-            'Accept': 'application/json',
-          },
-          body: JSON.stringify({ page: invoicePage, page_size: 50 }),
-        });
-
-        const responseData = await response.json();
-        return new Response(
-          JSON.stringify(responseData),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      case 'get-tracking': {
-        // Get tracking events for a shipment
-        const trackingOrderId = url.searchParams.get('order_id');
-        if (!trackingOrderId) {
-          return new Response(
-            JSON.stringify({ error: 'order_id is required' }),
-            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-
-        const response = await fetch(`${INTELIPOST_BASE_URL}/shipment_order/${trackingOrderId}/history`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'api-key': INTELIPOST_API_KEY,
-            'Accept': 'application/json',
-          },
-        });
-
-        const responseData = await response.json();
-        return new Response(
-          JSON.stringify(responseData),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      case 'sync-audit': {
-        // Custom action: Fetch all shipments and compare quote vs invoice prices
-        const syncResponse = await syncAuditData(INTELIPOST_BASE_URL, INTELIPOST_API_KEY, dateFrom, dateTo);
-        return new Response(
-          JSON.stringify(syncResponse),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      default:
-        return new Response(
-          JSON.stringify({ error: 'Invalid action. Valid actions: list-shipments, get-shipment, get-invoices, get-tracking, sync-audit' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        const data = await resp.json();
+        return new Response(JSON.stringify(data), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
-  } catch (err: unknown) {
-    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-    console.error('Error in intelipost-proxy:', err);
-    return new Response(
-      JSON.stringify({ error: 'Internal server error', details: errorMessage }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+
+    // --- AÇÃO 2: Busca por Nota Fiscal (GET) ---
+    if (action === 'SEARCH_BY_INVOICE') {
+        if (!invoice_number) throw new Error("Número da Nota Fiscal é obrigatório.");
+        const num = invoice_number.toString().trim();
+        const endpoint = `shipment_order/invoice/${encodeURIComponent(num)}`;
+        console.log(`Buscando (GET): ${INTELIPOST_OFFICIAL_URL}${endpoint}`);
+
+        const resp = await fetch(`${INTELIPOST_OFFICIAL_URL}${endpoint}`, {
+            method: 'GET',
+            headers: intelipostHeaders
+        });
+
+        if (!resp.ok) {
+            if (resp.status === 404) {
+                 return new Response(JSON.stringify({ content: { shipments: [] } }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+            }
+            const txt = await resp.text();
+            throw new Error(`Erro Busca NF [${resp.status}]: ${txt}`);
+        }
+        
+        const data = await resp.json();
+        let normalizedContent = [];
+        if (data.content) {
+            if (Array.isArray(data.content)) {
+                normalizedContent = data.content;
+            } else {
+                normalizedContent = [data.content];
+            }
+        }
+        return new Response(JSON.stringify({ content: { shipments: normalizedContent } }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    
+    // --- NOVA AÇÃO: Buscar Detalhes do Pedido ---
+    if (action === 'GET_SHIPMENT_DETAILS') {
+        if (!order_number) throw new Error("Número do Pedido é obrigatório.");
+
+        // Endpoint: /shipment_order/{order_number}
+        const endpoint = `shipment_order/${encodeURIComponent(order_number)}`;
+        console.log(`Detalhes (GET): ${INTELIPOST_OFFICIAL_URL}${endpoint}`);
+
+        const resp = await fetch(`${INTELIPOST_OFFICIAL_URL}${endpoint}`, {
+            method: 'GET',
+            headers: intelipostHeaders
+        });
+
+        if (!resp.ok) {
+            const txt = await resp.text();
+            throw new Error(`Erro Detalhes [${resp.status}]: ${txt}`);
+        }
+
+        const data = await resp.json();
+        return new Response(JSON.stringify(data), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    // --- AÇÃO 3: Teste de Conexão ---
+    if (action === 'TEST_CONNECTION') {
+        const resp = await fetch(`${INTELIPOST_OFFICIAL_URL}info`, { method: 'GET', headers: intelipostHeaders });
+        if (!resp.ok) {
+            const resp2 = await fetch(`${INTELIPOST_OFFICIAL_URL}shipment_order/search`, { 
+                method: 'POST', 
+                headers: intelipostHeaders, 
+                body: JSON.stringify({ page:1, page_size:1 }) 
+            });
+            if (resp2.status === 401 || resp2.status === 403) throw new Error("Chave de API inválida.");
+        }
+        return new Response(JSON.stringify({ status: "OK" }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    return new Response(JSON.stringify({ error: "Action not found" }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
+  } catch (error: any) {
+    console.error("Erro Proxy:", error.message);
+    return new Response(JSON.stringify({ error: error.message }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 });

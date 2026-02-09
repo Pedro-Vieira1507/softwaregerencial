@@ -1,4 +1,5 @@
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/utils"; 
+import { format } from "date-fns";
 
 export interface FreightOrder {
   id: string;
@@ -32,223 +33,45 @@ export interface AuditoriaStats {
 
 interface SyncAuditResponse {
   success: boolean;
+  message?: string;
+  syncedCount?: number;
   data?: {
     orders: FreightOrder[];
     stats: AuditoriaStats;
-    syncedAt: string;
-    totalRecords: number;
   };
   error?: string;
 }
 
-// Mock data for demo/fallback when API is not configured
+// Mock data para fallback
 const mockOrders: FreightOrder[] = [
   {
     id: "1",
-    orderNumber: "PED-2024-001234",
-    orderDate: "2024-01-15",
-    carrier: "Correios - SEDEX",
-    carrierCnpj: "34.028.316/0001-03",
-    quotePrice: 45.90,
-    invoicePrice: 52.30,
-    difference: 6.40,
-    differencePercentage: 13.94,
+    orderNumber: "PED-MOCK-001",
+    orderDate: new Date().toISOString(),
+    carrier: "Exemplo Transportadora",
+    carrierCnpj: "00.000.000/0001-00",
+    quotePrice: 50.00,
+    invoicePrice: 55.00,
+    difference: 5.00,
+    differencePercentage: 10,
     status: "divergente",
-    cteNumber: "CTE-00123456",
-    weight: 2.5,
+    weight: 1.5,
     destination: { city: "São Paulo", state: "SP" }
-  },
-  {
-    id: "2",
-    orderNumber: "PED-2024-001235",
-    orderDate: "2024-01-15",
-    carrier: "Jadlog",
-    carrierCnpj: "04.884.082/0001-35",
-    quotePrice: 89.00,
-    invoicePrice: 89.00,
-    difference: 0,
-    differencePercentage: 0,
-    status: "auditado",
-    cteNumber: "CTE-00123457",
-    weight: 5.2,
-    destination: { city: "Rio de Janeiro", state: "RJ" }
-  },
-  {
-    id: "3",
-    orderNumber: "PED-2024-001236",
-    orderDate: "2024-01-16",
-    carrier: "Total Express",
-    carrierCnpj: "07.152.227/0001-94",
-    quotePrice: 156.50,
-    invoicePrice: 178.90,
-    difference: 22.40,
-    differencePercentage: 14.31,
-    status: "divergente",
-    cteNumber: "CTE-00123458",
-    weight: 12.0,
-    destination: { city: "Belo Horizonte", state: "MG" }
-  },
-  {
-    id: "4",
-    orderNumber: "PED-2024-001237",
-    orderDate: "2024-01-16",
-    carrier: "Correios - PAC",
-    carrierCnpj: "34.028.316/0001-03",
-    quotePrice: 32.00,
-    invoicePrice: 32.00,
-    difference: 0,
-    differencePercentage: 0,
-    status: "auditado",
-    weight: 1.8,
-    destination: { city: "Curitiba", state: "PR" }
-  },
-  {
-    id: "5",
-    orderNumber: "PED-2024-001238",
-    orderDate: "2024-01-17",
-    carrier: "Jadlog",
-    carrierCnpj: "04.884.082/0001-35",
-    quotePrice: 67.00,
-    invoicePrice: 74.50,
-    difference: 7.50,
-    differencePercentage: 11.19,
-    status: "divergente",
-    cteNumber: "CTE-00123459",
-    weight: 3.4,
-    destination: { city: "Porto Alegre", state: "RS" }
-  },
-  {
-    id: "6",
-    orderNumber: "PED-2024-001239",
-    orderDate: "2024-01-17",
-    carrier: "Total Express",
-    carrierCnpj: "07.152.227/0001-94",
-    quotePrice: 210.00,
-    invoicePrice: 245.00,
-    difference: 35.00,
-    differencePercentage: 16.67,
-    status: "divergente",
-    weight: 18.5,
-    destination: { city: "Salvador", state: "BA" }
-  },
-  {
-    id: "7",
-    orderNumber: "PED-2024-001240",
-    orderDate: "2024-01-18",
-    carrier: "Azul Cargo",
-    carrierCnpj: "09.296.295/0001-60",
-    quotePrice: 320.00,
-    invoicePrice: 310.00,
-    difference: -10.00,
-    differencePercentage: -3.13,
-    status: "auditado",
-    cteNumber: "CTE-00123460",
-    weight: 25.0,
-    destination: { city: "Recife", state: "PE" }
-  },
-  {
-    id: "8",
-    orderNumber: "PED-2024-001241",
-    orderDate: "2024-01-18",
-    carrier: "Correios - SEDEX",
-    carrierCnpj: "34.028.316/0001-03",
-    quotePrice: 58.90,
-    invoicePrice: 0,
-    difference: 0,
-    differencePercentage: 0,
-    status: "pendente",
-    weight: 2.0,
-    destination: { city: "Fortaleza", state: "CE" }
-  },
-  {
-    id: "9",
-    orderNumber: "PED-2024-001242",
-    orderDate: "2024-01-19",
-    carrier: "Jadlog",
-    carrierCnpj: "04.884.082/0001-35",
-    quotePrice: 125.00,
-    invoicePrice: 142.00,
-    difference: 17.00,
-    differencePercentage: 13.60,
-    status: "divergente",
-    cteNumber: "CTE-00123461",
-    weight: 8.7,
-    destination: { city: "Brasília", state: "DF" }
-  },
-  {
-    id: "10",
-    orderNumber: "PED-2024-001243",
-    orderDate: "2024-01-19",
-    carrier: "Total Express",
-    carrierCnpj: "07.152.227/0001-94",
-    quotePrice: 98.00,
-    invoicePrice: 98.00,
-    difference: 0,
-    differencePercentage: 0,
-    status: "auditado",
-    weight: 4.5,
-    destination: { city: "Goiânia", state: "GO" }
-  },
-  {
-    id: "11",
-    orderNumber: "PED-2024-001244",
-    orderDate: "2024-01-20",
-    carrier: "Azul Cargo",
-    carrierCnpj: "09.296.295/0001-60",
-    quotePrice: 180.00,
-    invoicePrice: 0,
-    difference: 0,
-    differencePercentage: 0,
-    status: "pendente",
-    weight: 15.0,
-    destination: { city: "Manaus", state: "AM" }
-  },
-  {
-    id: "12",
-    orderNumber: "PED-2024-001245",
-    orderDate: "2024-01-20",
-    carrier: "Correios - PAC",
-    carrierCnpj: "34.028.316/0001-03",
-    quotePrice: 28.50,
-    invoicePrice: 35.00,
-    difference: 6.50,
-    differencePercentage: 22.81,
-    status: "divergente",
-    cteNumber: "CTE-00123462",
-    weight: 1.2,
-    destination: { city: "Florianópolis", state: "SC" }
   }
 ];
 
-// Simulate API delay
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
 export const intelipostService = {
   /**
-   * Fetch orders - tries real API first, falls back to mock data
+   * Fetch orders - Carrega dados iniciais.
    */
   async fetchOrders(): Promise<FreightOrder[]> {
-    try {
-      // Try to sync with real Intelipost API
-      const result = await this.syncWithApi();
-      if (result.success && result.data?.orders) {
-        return result.data.orders;
-      }
-    } catch (error) {
-      console.warn('Failed to fetch from Intelipost API, using mock data:', error);
-    }
-    
-    // Fallback to mock data
-    await delay(800);
-    return mockOrders;
+    return []; 
   },
 
   /**
-   * Calculate audit statistics from orders
+   * Calcula estatísticas baseadas nos pedidos listados
    */
   calculateStats(orders: FreightOrder[]): AuditoriaStats {
-    const auditedOrders = orders.filter(o => o.status !== "pendente");
-    
     const totalDiscrepancy = orders
       .filter(o => o.difference > 0)
       .reduce((sum, o) => sum + o.difference, 0);
@@ -268,7 +91,7 @@ export const intelipostService = {
       .sort(([, a], [, b]) => b.total - a.total)[0];
 
     return {
-      totalOrders: auditedOrders.length,
+      totalOrders: orders.length,
       totalDiscrepancy,
       carrierWithMostDivergence: carrierWithMost 
         ? {
@@ -281,95 +104,98 @@ export const intelipostService = {
   },
 
   /**
-   * Get unique carriers from orders
+   * Extrai lista única de transportadoras
    */
   getCarriers(orders: FreightOrder[]): string[] {
     return [...new Set(orders.map(o => o.carrier))].sort();
   },
 
   /**
-   * Sync with Intelipost API via Edge Function
+   * Sincroniza com a API Intelipost via Edge Function (intelipost-audit)
    */
-  async syncWithApi(dateFrom?: Date, dateTo?: Date): Promise<{ success: boolean; message: string; syncedCount: number; data?: SyncAuditResponse['data'] }> {
+  async syncWithApi(dateFrom: Date, dateTo: Date, providerId: string): Promise<SyncAuditResponse> {
     try {
-      const projectUrl = import.meta.env.VITE_SUPABASE_URL;
-      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const url = localStorage.getItem("intelipost_base_url");
+      const key = localStorage.getItem("intelipost_api_key");
+
+      if (!key) throw new Error("Chave de API não configurada.");
       
-      // Build URL with optional date filters
-      let url = `${projectUrl}/functions/v1/intelipost-proxy?action=sync-audit`;
-      if (dateFrom) {
-        url += `&date_from=${dateFrom.toISOString().split('T')[0]}`;
-      }
-      if (dateTo) {
-        url += `&date_to=${dateTo.toISOString().split('T')[0]}`;
-      }
-      
-      const syncResponse = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': anonKey,
+      // Validação Extra
+      if (!providerId) throw new Error("ID da Transportadora é obrigatório.");
+
+      const formattedStart = format(dateFrom, 'yyyy-MM-dd');
+      const formattedEnd = format(dateTo, 'yyyy-MM-dd');
+
+      console.log(`Sincronizando ID ${providerId} de ${formattedStart} até ${formattedEnd}`);
+
+      const { data, error } = await supabase.functions.invoke('intelipost-audit', {
+        body: { 
+            startDate: formattedStart,
+            endDate: formattedEnd,
+            logisticProviderId: providerId 
         },
+        headers: { 
+            'x-intelipost-url': url || "", 
+            'api-key': key 
+        }
       });
 
-      if (!syncResponse.ok) {
-        const errorText = await syncResponse.text();
-        console.warn('Sync API error:', errorText);
-        throw new Error(`API error: ${syncResponse.status}`);
-      }
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
 
-      const syncResult: SyncAuditResponse = await syncResponse.json();
+      // 4. Mapeia o retorno da API
+      const rawList = data.content || (Array.isArray(data) ? data : []);
+      
+      const mappedOrders: FreightOrder[] = rawList.map((item: any) => {
+          const quote = Number(item.quote_price || 0);
+          const invoice = Number(item.invoice_price || 0);
+          const diff = invoice - quote;
+          
+          let status: "auditado" | "divergente" | "pendente" = "auditado";
+          if (invoice === 0 && quote > 0) status = "pendente"; 
+          else if (Math.abs(diff) > 0.05) status = "divergente";
 
-      if (syncResult.success && syncResult.data) {
-        return {
-          success: true,
-          message: `Sincronização concluída com sucesso`,
-          syncedCount: syncResult.data.totalRecords,
-          data: syncResult.data
-        };
-      } else {
-        throw new Error(syncResult.error || 'Unknown error');
-      }
-    } catch (error) {
-      console.warn('Sync failed, using mock data:', error);
-      // Fallback to mock sync
-      await delay(1500);
+          return {
+              id: item.order_number || Math.random().toString(),
+              orderNumber: item.order_number || "-",
+              orderDate: item.created_iso || new Date().toISOString(),
+              carrier: item.logistic_provider_name || "Desconhecido",
+              carrierCnpj: item.logistic_provider_cnpj || "",
+              quotePrice: quote,
+              invoicePrice: invoice,
+              difference: diff,
+              differencePercentage: quote > 0 ? (diff / quote) * 100 : 0,
+              status: status,
+              cteNumber: item.cte_number,
+              invoiceNumber: item.invoice_number,
+              weight: Number(item.weight || 0),
+              destination: {
+                  city: item.destination_city || "",
+                  state: item.destination_state || ""
+              }
+          };
+      });
+
       return {
         success: true,
-        message: "Sincronização concluída (dados de demonstração)",
-        syncedCount: mockOrders.length
+        syncedCount: mappedOrders.length,
+        data: {
+            orders: mappedOrders,
+            stats: this.calculateStats(mappedOrders)
+        }
+      };
+
+    } catch (error: any) {
+      console.error('Erro na sincronização:', error);
+      
+      return {
+        success: false,
+        error: error.message || "Falha na comunicação com a API"
       };
     }
   },
 
-  /**
-   * Get shipment details by order ID
-   */
   async getShipmentDetails(orderId: string): Promise<FreightOrder | null> {
-    try {
-      const projectUrl = import.meta.env.VITE_SUPABASE_URL;
-      const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-
-      const response = await fetch(
-        `${projectUrl}/functions/v1/intelipost-proxy?action=get-shipment&order_id=${encodeURIComponent(orderId)}`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': anonKey,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      return data.content?.shipment || null;
-    } catch (error) {
-      console.warn('Failed to get shipment details:', error);
-      return mockOrders.find(o => o.id === orderId || o.orderNumber === orderId) || null;
-    }
+      return mockOrders.find(o => o.orderNumber === orderId) || null;
   }
 };

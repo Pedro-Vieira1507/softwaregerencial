@@ -12,7 +12,6 @@ serve(async (req) => {
   try {
     const { action } = await req.json()
     
-    // Configurações
     const rawKey = req.headers.get('x-onclick-token')
     const onclickKey = rawKey ? rawKey.trim() : null
     const baseUrl = "http://api.onclick.com.br:8085"
@@ -30,12 +29,10 @@ serve(async (req) => {
     }
 
     if (action === 'GET_PRODUCTS') {
-        
         let stockMap = new Map(); 
         let skusToProcess = new Set<string>();
-        let debugMap = new Map(); // Mapa para guardar o status da API
 
-        // 1. LEITURA DA FILA DE ESTOQUE
+        // 1. LEITURA DA FILA DE ESTOQUE (Limitado a 100 itens da Onclick)
         try {
             const resp = await fetch(`${baseUrl}/api/v2/Stock?limit=100`, { method: 'GET', headers: headersOnclick });
             if (resp.ok) {
@@ -48,18 +45,17 @@ serve(async (req) => {
                     });
                 }
             }
-        } catch (e) { console.error("Erro Stock:", e); }
+        } catch (e) { console.error("Erro ao ler estoque da Onclick:", e); }
 
-        // 2. AUTOCORREÇÃO (Pega 50 produtos que ainda estão como 'Não'/'0')
-        // Isso garante que o DP10 seja pego eventualmente
-        const { data: missingParents } = await supabase
+        // 2. BUSCA ITENS SEM NOME OU SEM PAI NO BANCO (Autocorreção)
+        const { data: missingInfo } = await supabase
             .from('produtos_cache')
             .select('sku')
-            .or('parent_sku.eq.0,parent_sku.is.null')
-            .limit(50);
+            .or('nome.eq.Produto Sincronizado,parent_sku.eq.0,parent_sku.is.null')
+            .limit(15); // Limite menor para evitar timeout, já que faremos mais chamadas por item
 
-        if (missingParents) {
-            missingParents.forEach((p: any) => {
+        if (missingInfo) {
+            missingInfo.forEach((p: any) => {
                 if(p.sku) skusToProcess.add(p.sku.toString().trim());
             });
         }
@@ -67,78 +63,80 @@ serve(async (req) => {
         // 3. PROCESSAMENTO (API -> BANCO)
         if (skusToProcess.size > 0) {
             const itemsToUpsert = await Promise.all(Array.from(skusToProcess).map(async (sku) => {
-                let nome = "Produto Sincronizado";
+                let nomeFinal = "Produto Sincronizado";
                 let parentSku = "0"; 
-                let debugInfo = {};
-
-                // Lógica de Estoque (Preserva o banco se não veio da fila)
                 let estoqueCalculado = 0;
-                if (stockMap.has(sku)) {
-                     estoqueCalculado = (stockMap.get(sku) ?? 0) - 1000;
+
+                // Consulta estado atual no banco
+                const { data: current } = await supabase.from('produtos_cache').select('*').eq('sku', sku).single();
+                
+                // BUSCA NOME REAL NA API (Se necessário)
+                if (!current?.nome || current.nome === "Produto Sincronizado") {
+                    try {
+                        // Novo endpoint conforme documentação enviada
+                        const urlProd = `${baseUrl}/api/v2/Product/GetBySku/${encodeURIComponent(sku)}`;
+                        const respProd = await fetch(urlProd, { method: 'GET', headers: headersOnclick });
+                        
+                        if (respProd.ok) {
+                            const jsonProd = await respProd.json();
+                            // Acessando o primeiro item do array de produtos
+                            if (jsonProd.success && jsonProd.products && jsonProd.products.length > 0) {
+                                nomeFinal = jsonProd.products[0].productName || nomeFinal;
+                            }
+                        }
+                    } catch (e) { console.error(`Erro ao buscar dados do SKU ${sku}:`, e); }
                 } else {
-                     const { data: current } = await supabase.from('produtos_cache').select('estoque, nome').eq('sku', sku).single();
-                     estoqueCalculado = current?.estoque || 0;
-                     if (current?.nome) nome = current.nome;
+                    nomeFinal = current.nome;
                 }
 
-                try {
-                    // Busca PAI na API
-                    const urlParent = `${baseUrl}/api/v2/ParentSku?sku=${encodeURIComponent(sku)}`;
-                    const respParent = await fetch(urlParent, { method: 'GET', headers: headersOnclick });
-                    const textParent = await respParent.text();
-                    
+                // Lógica de Estoque
+                if (stockMap.has(sku)) {
+                    estoqueCalculado = (stockMap.get(sku) ?? 0) - 1000;
+                } else {
+                    estoqueCalculado = current?.estoque || 0;
+                }
+
+                // Lógica de Parent Sku (Mantém se já tiver no banco ou busca na API)
+                if (current?.parent_sku && current.parent_sku !== "0") {
+                    parentSku = current.parent_sku;
+                } else {
                     try {
-                        const jsonParent = JSON.parse(textParent);
-                        debugInfo = { status: respParent.status, response: jsonParent };
-
-                        if (respParent.ok && jsonParent.success && jsonParent.parentSku) {
-                            parentSku = jsonParent.parentSku;
+                        const urlParent = `${baseUrl}/api/v2/ParentSku?sku=${encodeURIComponent(sku)}`;
+                        const respParent = await fetch(urlParent, { method: 'GET', headers: headersOnclick });
+                        if (respParent.ok) {
+                            const jsonParent = await respParent.json();
+                            if (jsonParent.success && jsonParent.parentSku) {
+                                parentSku = jsonParent.parentSku;
+                            }
                         }
-                    } catch {
-                        debugInfo = { error: "JSON Inválido", raw: textParent };
-                    }
-                } catch (err) { debugInfo = { error: err.message }; }
-
-                // Guarda o debug
-                debugMap.set(sku, debugInfo);
+                    } catch (err) { console.error("Erro ParentSku:", err); }
+                }
 
                 return {
                     sku: sku,
-                    nome: nome,
+                    nome: nomeFinal,
                     estoque: estoqueCalculado,
-                    parent_sku: parentSku, // AGORA VAI SALVAR NO BANCO!
+                    parent_sku: parentSku,
                     ultima_atualizacao: new Date().toISOString()
                 };
             }));
 
-            // Salva no banco (Agora a coluna existe, então vai funcionar!)
-            const { error } = await supabase
-                .from('produtos_cache')
-                .upsert(itemsToUpsert, { onConflict: 'sku' });
-            
-            if (error) console.error("Erro ao salvar:", error);
+            // Upsert no Supabase
+            await supabase.from('produtos_cache').upsert(itemsToUpsert, { onConflict: 'sku' });
         }
 
-        // 4. LEITURA FINAL (Lê tudo do banco)
-        const { data: fullList, error: dbError } = await supabase
+        // 4. RETORNO DA LISTA COMPLETA
+        const { data: fullList } = await supabase
             .from('produtos_cache')
             .select('*')
             .order('nome', { ascending: true });
 
-        if (dbError) throw dbError;
-
-        // Anexa o debug nos itens processados para você conferir no Network
-        const responseWithDebug = fullList?.map((item: any) => {
-            const debug = debugMap.get(item.sku);
-            return debug ? { ...item, _debug_api: debug } : item;
-        });
-
-        return new Response(JSON.stringify(responseWithDebug), {
+        return new Response(JSON.stringify(fullList), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         })
     }
 
-    return new Response(JSON.stringify({ msg: "Action not found" }), { headers: corsHeaders });
+    return new Response(JSON.stringify({ msg: "Ação não encontrada" }), { headers: corsHeaders });
 
   } catch (error) {
     return new Response(JSON.stringify({ error: error.message }), {
