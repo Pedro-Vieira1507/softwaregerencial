@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/utils"; 
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,19 +23,24 @@ const getApiCredentials = () => {
 export default function Estoque() {
   const [search, setSearch] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
-  const [newStock, setNewStock] = useState("");
+  
+  // Estados do Modal
+  const [minStock, setMinStock] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // 1. Busca dados reais via Edge Function (Polling de 5 segundos)
+  // 1. Busca dados do ERP + Supabase
   const { data: products = [], isLoading, isError, refetch, isRefetching } = useQuery({
     queryKey: ['onclick-products'],
     queryFn: async () => {
       const { url, token } = getApiCredentials();
       if (!url || !token) throw new Error("Credenciais não configuradas");
 
-      const { data, error } = await supabase.functions.invoke('onclick-proxy', {
+      // A. Busca o Estoque Real do ERP
+      const { data: erpData, error } = await supabase.functions.invoke('onclick-proxy', {
         body: { action: 'GET_PRODUCTS' },
         headers: {
           'x-onclick-url': url,
@@ -45,44 +50,33 @@ export default function Estoque() {
 
       if (error) throw error;
       
-      return Array.isArray(data) ? data.map((item: any) => ({
+      // B. Busca os Estoques Mínimos salvos no seu Supabase
+      const { data: supaData } = await supabase
+        .from('produtos_cache')
+        .select('sku, qtyminstock');
+
+      // Cria um dicionário para cruzar os dados rápido
+      const minStockMap: Record<string, number> = {};
+      if (supaData) {
+        supaData.forEach((p: any) => {
+          minStockMap[p.sku] = Number(p.qtyminstock) || 0;
+        });
+      }
+      
+      return Array.isArray(erpData) ? erpData.map((item: any) => ({
         id: item.sku, 
         sku: item.sku,
         nome: item.nome,
         estoque: Number(item.estoque),
+        estoqueMinimo: minStockMap[item.sku] || 0, // Cruza com a info do Supabase
         parentSku: item.parent_sku || "0", 
         ultimaSync: new Date(item.ultima_atualizacao).toLocaleString("pt-BR")
       })) : [];
     },
-    // Configurações de Atualização Automática
-    staleTime: 0,                 // Dados sempre velhos (força busca)
-    refetchInterval: 5000,        // Atualiza a cada 5 segundos (para teste rápido)
+    staleTime: 0,                
+    refetchInterval: 5000,       
     refetchIntervalInBackground: true, 
     refetchOnWindowFocus: true 
-  });
-
-  // 2. Mutação para atualizar estoque
-  const updateStockMutation = useMutation({
-    mutationFn: async ({ sku, quantity }: { sku: string, quantity: number }) => {
-      const { url, token } = getApiCredentials();
-      const { data, error } = await supabase.functions.invoke('onclick-proxy', {
-        body: { 
-          action: 'UPDATE_STOCK', 
-          payload: { sku, quantidade: quantity } 
-        },
-        headers: { 'x-onclick-url': url, 'x-onclick-token': token }
-      });
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['onclick-products'] });
-      toast({ title: "Sucesso", description: "Estoque atualizado no ERP." });
-      setIsDialogOpen(false);
-    },
-    onError: (error) => {
-      toast({ variant: "destructive", title: "Erro", description: error.message });
-    }
   });
 
   const filteredProducts = products.filter((p: any) =>
@@ -90,10 +84,42 @@ export default function Estoque() {
     p.sku?.toLowerCase().includes(search.toLowerCase())
   );
 
+  // 2. Handler para abrir o Modal
   const handleEditStock = (product: any) => {
     setSelectedProduct(product);
-    setNewStock(product.estoque.toString());
+    // Em vez de limpar, carrega o valor atual salvo no banco!
+    setMinStock(product.estoqueMinimo > 0 ? product.estoqueMinimo.toString() : ""); 
     setIsDialogOpen(true);
+  };
+
+  // 3. Salvar o Estoque Mínimo via RPC
+  const handleSave = async () => {
+    if (!minStock || isNaN(Number(minStock))) {
+      toast({ variant: "destructive", title: "Atenção", description: "Insira um valor numérico válido." });
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const { error } = await supabase.rpc('atualizar_estoque_minimo', {
+        p_sku: selectedProduct.sku,
+        p_qtyminstock: parseInt(minStock, 10)
+      });
+
+      if (error) throw error;
+
+      toast({ title: "Sucesso", description: "Estoque mínimo atualizado com sucesso." });
+      setIsDialogOpen(false);
+      
+      // Atualiza a tabela imediatamente após salvar
+      refetch(); 
+      
+    } catch (err: any) {
+      console.error(err);
+      toast({ variant: "destructive", title: "Erro ao salvar", description: err.message });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -105,7 +131,7 @@ export default function Estoque() {
         </Button>
       </PageHeader>
 
-      <Card className="shadow-card">
+      <Card className="shadow-card mt-6">
         <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg font-heading flex items-center gap-2">
@@ -124,7 +150,7 @@ export default function Estoque() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="flex justify-center p-8"><Loader2 className="animate-spin" /></div>
+            <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary w-8 h-8" /></div>
           ) : isError ? (
             <div className="text-center text-red-500 p-4">Erro ao carregar dados. Verifique as configurações.</div>
           ) : (
@@ -133,8 +159,11 @@ export default function Estoque() {
                 <TableRow>
                   <TableHead>SKU</TableHead>
                   <TableHead>Produto</TableHead>
-                  <TableHead className="text-center">Estoque</TableHead>
-                  <TableHead className="text-center whitespace-nowrap">SKU Pai</TableHead>
+                  <TableHead className="text-center">Estoque Real</TableHead>
+                  <TableHead className="text-center">SKU Pai</TableHead>
+                  {/* Nova coluna na tabela para facilitar a visualização */}
+                  <TableHead className="text-center">Estoque Mín.</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -143,18 +172,27 @@ export default function Estoque() {
                     <TableCell className="font-mono text-sm">{product.sku}</TableCell>
                     <TableCell className="font-medium">{product.nome}</TableCell>
                     
-                    <TableCell className="text-center">
-                      <span className={cn("font-medium", product.estoque < product.estoqueMinimo && "text-warning")}>
+                    {/* O estoque fica vermelho na tabela se estiver igual ou abaixo do mínimo */}
+                    <TableCell className="text-center font-medium">
+                      <span className={cn(product.estoqueMinimo > 0 && product.estoque <= product.estoqueMinimo && "text-red-600 font-bold")}>
                         {product.estoque}
                       </span>
                     </TableCell>
 
                     <TableCell className="text-center">
-                      {product.parentSku === "0" || !product.parentSku 
-                        ? "Não" 
-                        : product.parentSku}
+                      {product.parentSku === "0" || !product.parentSku ? "Não" : product.parentSku}
                     </TableCell>
 
+                    {/* Exibe o mínimo na tela para consulta rápida */}
+                    <TableCell className="text-center font-semibold text-slate-600">
+                      {product.estoqueMinimo > 0 ? product.estoqueMinimo : "-"}
+                    </TableCell>
+
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="icon" onClick={() => handleEditStock(product)}>
+                        <Edit2 className="w-4 h-4 text-slate-500 hover:text-blue-600" />
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -166,26 +204,36 @@ export default function Estoque() {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Atualizar Estoque</DialogTitle>
-            <DialogDescription>Produto: {selectedProduct?.nome}</DialogDescription>
+            <DialogTitle>Definir Estoque Mínimo</DialogTitle>
+            <DialogDescription>
+              Configurando alerta de estoque para: <br/> 
+              <span className="font-semibold text-slate-800">{selectedProduct?.nome}</span> (SKU: {selectedProduct?.sku})
+            </DialogDescription>
           </DialogHeader>
           <div className="py-4">
-            <Label htmlFor="stock">Nova quantidade</Label>
+            <Label htmlFor="minStock">Estoque Mínimo</Label>
             <Input
-              id="stock"
+              id="minStock"
               type="number"
-              value={newStock}
-              onChange={(e) => setNewStock(e.target.value)}
+              min="0"
+              value={minStock}
+              onChange={(e) => setMinStock(e.target.value)}
+              placeholder="Ex: 10"
               className="mt-2"
             />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
-            <Button 
-              onClick={() => updateStockMutation.mutate({ sku: selectedProduct.sku, quantity: parseInt(newStock) })} 
-              disabled={updateStockMutation.isPending}
-            >
-              {updateStockMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Salvar no ERP"}
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={isSaving}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSave} disabled={isSaving} className="relative w-44">
+              <span className={cn("flex items-center gap-2 transition-opacity", isSaving ? "opacity-0" : "opacity-100")}>
+                Salvar Estoque Mínimo
+              </span>
+              <span className={cn("absolute flex items-center gap-2 transition-opacity", isSaving ? "opacity-100" : "opacity-0")}>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Salvando...
+              </span>
             </Button>
           </DialogFooter>
         </DialogContent>

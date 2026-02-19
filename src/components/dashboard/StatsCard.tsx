@@ -27,14 +27,14 @@ export function StatsCard({ title, value, icon: Icon, trend, variant = "default"
       <CardContent className="p-5">
         <div className="flex items-start justify-between">
           <div>
-            <p className="text-sm font-medium text-muted-foreground">{title}</p>
+            <p className="text-sm font-medium text-muted-foreground ">{title}</p>
             <p className="text-2xl font-heading font-semibold mt-1">{value}</p>
             {trend && (
               <p className={cn(
                 "text-xs mt-2 font-medium",
                 trend.isPositive ? "text-success" : "text-destructive"
               )}>
-                {trend.isPositive ? "+" : ""}{trend.value}% em relação ao mês anterior
+                {trend.isPositive ? "+" : ""}{trend.value}
               </p>
             )}
           </div>
