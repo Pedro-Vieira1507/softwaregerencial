@@ -32,9 +32,9 @@ export function StatsCard({ title, value, icon: Icon, trend, variant = "default"
             {trend && (
               <p className={cn(
                 "text-xs mt-2 font-medium",
-                trend.isPositive ? "text-success" : "text-destructive"
+                trend.isPositive ? "text-success" : "text-destructive invisible"
               )}>
-                {trend.isPositive ? "+" : ""}{trend.value}
+                {trend.isPositive ? "+" : ""}{trend.value}% em relação ao mês anterior
               </p>
             )}
           </div>

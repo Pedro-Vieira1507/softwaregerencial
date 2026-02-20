@@ -7,7 +7,8 @@ import {
   Link2,
   ChevronLeft,
   ChevronRight,
-  Truck
+  Truck,
+  Map // Ícone novo adicionado para o WMS
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,7 @@ const navItems = [
   { icon: Package, label: "Estoque", path: "/estoque" },
   { icon: Truck, label: "Rastreio", path: "/rastreio" },
   { icon: ShoppingCart, label: "Pedidos Site", path: "/pedidos" },
+  { icon: Map, label: "WMS Logística", path: "/wms" }, // Nova rota inserida
   { icon: Settings, label: "Configurações", path: "/configuracoes" },
 ];
 
