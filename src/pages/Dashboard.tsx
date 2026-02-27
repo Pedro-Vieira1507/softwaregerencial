@@ -33,28 +33,23 @@ const supabase = createClient(
 );
 
 export default function Dashboard() {
-  // --- Estados Gerais ---
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(true);
   const [syncing, setSyncing] = useState(false);
 
-  // --- Estados de Estatísticas ---
   const [monthCount, setMonthCount] = useState(0);
   const [monthRevenue, setMonthRevenue] = useState(0);
   const [historyData, setHistoryData] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
-  // --- Estados de Recorrência ---
   const [overallRecurringCount, setOverallRecurringCount] = useState(0);
   const [recurringDataByMonth, setRecurringDataByMonth] = useState<Record<string, any[]>>({});
   const [availableMonths, setAvailableMonths] = useState<string[]>([]);
   const [selectedMonth, setSelectedMonth] = useState<string>("Todos");
 
-  // --- Estados de Estoque ---
   const [stockAlerts, setStockAlerts] = useState<any[]>([]);
   const [loadingStock, setLoadingStock] = useState(true);
 
-  // --- Estados dos Modais ---
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [historyType, setHistoryType] = useState<'orders' | 'revenue' | 'recurrence'>('orders');
 
@@ -63,7 +58,6 @@ export default function Dashboard() {
   const [orderDetails, setOrderDetails] = useState<any>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
 
-  // 1. Busca Pedidos Recentes
   const fetchRecentOrders = async () => {
     if (recentOrders.length === 0) setLoadingOrders(true);
     const { data, error } = await supabase
@@ -76,7 +70,6 @@ export default function Dashboard() {
     setLoadingOrders(false);
   };
 
-  // 2. Calcula Estatísticas Mensais e Recorrência Mês a Mês
   const fetchMonthlyStats = async () => {
     setLoadingHistory(true);
     const today = new Date();
@@ -95,9 +88,7 @@ export default function Dashboard() {
 
     let currentMonthCounter = 0;
     let currentMonthTotal = 0;
-    
     const statsMap: Record<string, { count: number; total: number; sortKey: number }> = {};
-    
     const customerOverall: Record<string, { count: number; total: number }> = {};
     const customerByMonth: Record<string, Record<string, { count: number; total: number }>> = {};
     const monthsSet = new Set<string>();
@@ -106,10 +97,8 @@ export default function Dashboard() {
       const dateObj = new Date(order.created_at);
       const monthKey = dateObj.toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
       const sortKey = dateObj.getFullYear() * 100 + dateObj.getMonth();
-      
       const status = order.status?.toLowerCase() || '';
       const valorPedido = Number(order.grand_total);
-
       const statusExcluidos = ['pending', 'canceled', 'cancelado']; 
       const isRevenueValid = !statusExcluidos.includes(status);
 
@@ -123,7 +112,6 @@ export default function Dashboard() {
       
       if (isRevenueValid) {
         statsMap[monthKey].total += valorPedido; 
-        
         const name = `${order.customer_firstname || ''} ${order.customer_lastname || ''}`.trim();
         if (name) {
           if (!customerOverall[name]) customerOverall[name] = { count: 0, total: 0 };
@@ -162,15 +150,12 @@ export default function Dashboard() {
     setMonthCount(currentMonthCounter);
     setMonthRevenue(currentMonthTotal);
     setHistoryData(historyArray);
-    
     setOverallRecurringCount(overallRecurring.length);
     setRecurringDataByMonth({ "Todos": overallRecurring, ...monthlyRecurring });
     setAvailableMonths(["Todos", ...sortedMonths]);
-    
     setLoadingHistory(false);
   };
 
-  // 3. Análise de Alerta de Estoque
   const fetchStockAlerts = async () => {
     setLoadingStock(true);
     const { data, error } = await supabase
@@ -181,7 +166,6 @@ export default function Dashboard() {
       const criticalItems = data.filter((produto: any) => {
         const estoqueAtual = Number(produto.estoque);
         const estoqueMinimo = Number(produto.qtyminstock);
-        
         return estoqueMinimo > 0 && estoqueAtual < estoqueMinimo;
       });
       setStockAlerts(criticalItems);
@@ -189,7 +173,6 @@ export default function Dashboard() {
     setLoadingStock(false);
   };
 
-  // 4. Sync Geral
   const handleSync = async (silent = false) => {
     if (!silent) setSyncing(true);
     try {
@@ -204,7 +187,6 @@ export default function Dashboard() {
     finally { if (!silent) setSyncing(false); }
   };
 
-  // 5. Detalhes do Pedido
   const handleOrderClick = async (incrementId: string) => {
     setSelectedOrderId(incrementId);
     setIsDetailModalOpen(true);
@@ -217,7 +199,6 @@ export default function Dashboard() {
     finally { setLoadingDetails(false); }
   };
 
-  // 6. Abre Modal Histórico
   const openHistory = (type: 'orders' | 'revenue' | 'recurrence') => {
     setHistoryType(type);
     setIsHistoryModalOpen(true);
@@ -234,92 +215,100 @@ export default function Dashboard() {
   const currentRecurrenceData = recurringDataByMonth[selectedMonth] || [];
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <PageHeader title="Dashboard" description="Visão geral das integrações e status do sistema" />
-        <Button variant="outline" size="sm" onClick={() => handleSync(false)} disabled={syncing} className="bg-white">
+    // FORÇADO: max-w-full e overflow-x-hidden para impedir que qualquer filho quebre a tela
+    <div className="w-full max-w-full overflow-x-hidden space-y-4 sm:space-y-6 pb-6">
+      
+      {/* Cabeçalho */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 w-full">
+        {/* Garantimos que o PageHeader não crie overflow */}
+        <div className="w-full min-w-0">
+           <PageHeader title="Dashboard" description="Visão geral das integrações e status do sistema" />
+        </div>
+        <Button 
+          onClick={() => handleSync(false)} 
+          disabled={syncing} 
+          className="w-full sm:w-auto shadow-sm flex-shrink-0"
+        >
           <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
           {syncing ? 'Atualizando...' : 'Atualizar Dados'}
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-stretch">
+      {/* GRELHA DE CARTÕES DE ESTATÍSTICA */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
         
-        {/* Card 1: RECORRÊNCIA DE CLIENTES */}
-        <div 
-          onClick={() => openHistory('recurrence')}
-          className="cursor-pointer transition-transform hover:scale-[1.02] flex flex-col h-full"
-        >
+        {/* Usar 'w-full min-w-0' nos blocos da grelha impede que cartões longos empurrem os limites */}
+        <div className="w-full min-w-0 cursor-pointer transition-transform hover:-translate-y-1" onClick={() => openHistory('recurrence')}>
           <StatsCard
             title="Recorrência (Total)"
             value={overallRecurringCount.toString()}
             icon={Users}
             variant="primary"
-            trend={{ }} /* Hack de espaçamento: Igualamos a prop vazia ao dos outros cards para forçar a mesma altura na div interna */
-            className="border-purple-200 bg-purple-50/30 h-full flex-1"
+            trend={{ }} 
+            className="border-purple-200 bg-purple-50/30 h-full w-full shadow-sm hover:shadow-md transition-shadow"
           />
         </div>
 
-        {/* Card 2: PEDIDOS */}
-        <div 
-          onClick={() => openHistory('orders')}
-          className="cursor-pointer transition-transform hover:scale-[1.02] flex flex-col h-full"
-        >
+        <div className="w-full min-w-0 cursor-pointer transition-transform hover:-translate-y-1" onClick={() => openHistory('orders')}>
           <StatsCard
             title="Pedidos do Mês"
             value={monthCount.toString()}
             icon={ShoppingCart}
             variant="success"
             trend={{ }} 
-            className="border-green-200 bg-green-50/30 h-full flex-1"
+            className="border-green-200 bg-green-50/30 h-full w-full shadow-sm hover:shadow-md transition-shadow"
           />
         </div>
 
-        {/* Card 3: FATURAMENTO */}
-        <div 
-          onClick={() => openHistory('revenue')}
-          className="cursor-pointer transition-transform hover:scale-[1.02] flex flex-col h-full"
-        >
+        <div className="w-full min-w-0 cursor-pointer transition-transform hover:-translate-y-1" onClick={() => openHistory('revenue')}>
           <StatsCard
             title="Faturamento (Mês)"
             value={monthRevenue.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })}
             icon={TrendingUp}
             variant="primary"
             trend 
-            className="border-blue-200 bg-blue-50/30 h-full flex-1"
+            className="border-blue-200 bg-blue-50/30 h-full w-full shadow-sm hover:shadow-md transition-shadow"
           />
         </div>
 
-        {/* Card 4: Alerta Estoque */}
-        <StatsCard
-          title="Alerta Estoque"
-          value={stockAlerts.length.toString()}
-          icon={AlertTriangle}
-          variant={stockAlerts.length > 0 ? "warning" : "primary"}
-          trend={{ }} /* Hack para manter a altura igual a do Faturamento */
-          className="h-full"
-        />
+        <div className="w-full min-w-0">
+            <StatsCard
+              title="Alerta Estoque"
+              value={stockAlerts.length.toString()}
+              icon={AlertTriangle}
+              variant={stockAlerts.length > 0 ? "warning" : "primary"}
+              trend={{ }} 
+              className="h-full w-full shadow-sm"
+            />
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* GRELHA INFERIOR: ÚLTIMOS PEDIDOS E ALERTA ESTOQUE */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 w-full">
         
-        {/* Card Pedidos Recentes */}
-        <Card className="shadow-card flex flex-col h-full">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <div><CardTitle className="text-lg font-heading">Últimos Pedidos</CardTitle><CardDescription>Sincronizado com Forlab Express</CardDescription></div>
-            <Button variant="ghost" size="sm" asChild><Link to="/pedidos" className="text-blue-600 hover:text-blue-800">Ver todos <ArrowRight className="w-4 h-4 ml-1" /></Link></Button>
+        <Card className="shadow-sm border-border flex flex-col h-full overflow-hidden w-full min-w-0">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 bg-slate-50/50 flex-wrap gap-2">
+            <div className="min-w-0 flex-1">
+              <CardTitle className="text-base sm:text-lg font-heading truncate">Últimos Pedidos</CardTitle>
+              <CardDescription className="text-xs sm:text-sm truncate">Sincronizado com Forlab Express</CardDescription>
+            </div>
+            <Button variant="ghost" size="sm" asChild className="flex-shrink-0">
+                <Link to="/pedidos" className="text-blue-600 hover:text-blue-800 text-xs sm:text-sm px-0 sm:px-3">
+                    Ver todos <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4 ml-1" />
+                </Link>
+            </Button>
           </CardHeader>
-          <CardContent className="flex-1">
+          <CardContent className="flex-1 pt-4 px-3 sm:px-6">
             <div className="space-y-3">
               {loadingOrders ? (
                 <div className="flex justify-center py-8 text-gray-400"><Loader2 className="w-6 h-6 animate-spin" /></div>
               ) : recentOrders.map((order) => (
-                <div key={order.id} className="flex items-center justify-between p-3 rounded-lg border border-gray-100 bg-white hover:bg-gray-50 transition-all cursor-pointer" onClick={() => handleOrderClick(order.increment_id)}>
-                  <div>
+                <div key={order.id} className="flex items-center justify-between p-3 rounded-lg border border-gray-100 bg-white hover:bg-gray-50 transition-all cursor-pointer gap-2" onClick={() => handleOrderClick(order.increment_id)}>
+                  <div className="min-w-0 flex-1">
                     <p className="font-bold text-sm text-blue-600">#{order.increment_id}</p>
-                    <p className="text-xs text-gray-500 font-medium truncate max-w-[150px]">{order.customer_firstname} {order.customer_lastname}</p>
+                    <p className="text-xs text-gray-500 font-medium truncate">{order.customer_firstname} {order.customer_lastname}</p>
                   </div>
-                  <div className="text-right">
+                  <div className="text-right flex-shrink-0">
                     <p className="font-bold text-sm text-gray-800">{Number(order.grand_total).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>
                     <StatusBadgeDashboard status={order.status} />
                   </div>
@@ -329,31 +318,34 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Card Alerta de Estoque */}
-        <Card className="shadow-card flex flex-col h-full">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-lg font-heading">Alerta de Estoque</CardTitle>
-            <Button variant="ghost" size="sm" asChild><Link to="/estoque" className="text-primary">Ver todos <ArrowRight className="w-4 h-4 ml-1" /></Link></Button>
+        <Card className="shadow-sm border-border flex flex-col h-full overflow-hidden w-full min-w-0">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 bg-slate-50/50 flex-wrap gap-2">
+            <CardTitle className="text-base sm:text-lg font-heading truncate flex-1 min-w-0">Alerta de Estoque</CardTitle>
+            <Button variant="ghost" size="sm" asChild className="flex-shrink-0">
+                <Link to="/estoque" className="text-primary text-xs sm:text-sm px-0 sm:px-3">
+                    Ver todos <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4 ml-1" />
+                </Link>
+            </Button>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2">
+          <CardContent className="pt-4 px-3 sm:px-6">
+            <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1 sm:pr-2 custom-scrollbar">
               {loadingStock ? (
                 <div className="flex justify-center py-4 text-gray-400"><Loader2 className="w-6 h-6 animate-spin" /></div>
               ) : stockAlerts.length > 0 ? (
                 stockAlerts.map((item) => (
-                  <div key={item.sku} className="flex items-center justify-between p-3 rounded-lg bg-red-50 border border-red-100">
-                    <div className="overflow-hidden max-w-[65%]">
+                  <div key={item.sku} className="flex items-center justify-between p-3 rounded-lg bg-red-50 border border-red-100 gap-2">
+                    <div className="overflow-hidden min-w-0 flex-1">
                       <p className="font-medium text-sm text-red-900 truncate" title={item.nome}>
                         {item.nome || "Produto sem nome"}
                       </p>
-                      <p className="text-xs text-red-700/70 font-mono">{item.sku}</p>
+                      <p className="text-xs text-red-700/70 font-mono truncate">{item.sku}</p>
                     </div>
-                    <div className="text-right min-w-[80px]">
-                      <p className="font-bold text-sm text-red-600">
+                    <div className="text-right flex-shrink-0 w-[65px] sm:w-[80px]">
+                      <p className="font-bold text-sm text-red-600 truncate">
                         {item.estoque} un
                       </p>
-                      <p className="text-[10px] text-red-500 font-semibold">
-                        Mínimo: {item.qtyminstock}
+                      <p className="text-[10px] sm:text-xs text-red-500 font-semibold truncate">
+                        Mín: {item.qtyminstock}
                       </p>
                     </div>
                   </div>
@@ -369,13 +361,13 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* Modais */}
+      {/* MODAIS (MANTIDOS IGUAIS) */}
       <Dialog open={isHistoryModalOpen} onOpenChange={setIsHistoryModalOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="w-[95vw] sm:max-w-[500px] p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {historyType === 'orders' && <><Package className="h-5 w-5 text-green-600" /> Histórico de Volume de Pedidos</>}
-              {historyType === 'revenue' && <><BarChart3 className="h-5 w-5 text-blue-600" /> Histórico de Faturamento (Efetivo)</>}
+              {historyType === 'revenue' && <><BarChart3 className="h-5 w-5 text-blue-600" /> Histórico de Faturamento</>}
               {historyType === 'recurrence' && <><Users className="h-5 w-5 text-purple-600" /> Clientes Recorrentes</>}
             </DialogTitle>
             <DialogDescription>
@@ -400,8 +392,8 @@ export default function Dashboard() {
             </div>
           )}
 
-          <div className="mt-4 border rounded-lg overflow-hidden max-h-[300px] overflow-y-auto">
-             <table className="w-full text-sm">
+          <div className="mt-4 border rounded-lg overflow-x-auto max-h-[300px] overflow-y-auto">
+             <table className="w-full text-sm min-w-[350px]">
                 <thead className="bg-slate-100 text-slate-700 sticky top-0">
                   <tr>
                     {historyType === 'recurrence' ? (
@@ -464,7 +456,7 @@ export default function Dashboard() {
       </Dialog>
 
       <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="w-[95vw] sm:max-w-[600px] p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Detalhes do Pedido #{selectedOrderId}</DialogTitle>
             <DialogDescription>Consulta em tempo real</DialogDescription>
@@ -473,18 +465,19 @@ export default function Dashboard() {
              <div className="flex flex-col items-center py-8"><Loader2 className="h-8 w-8 animate-spin text-blue-600" /></div>
           ) : orderDetails ? (
             <div className="space-y-6">
-               <div className="grid grid-cols-2 gap-4">
+               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="bg-slate-50 p-3 rounded border flex gap-3 items-center">
-                    <Truck className="h-5 w-5 text-slate-500" />
+                    <Truck className="h-5 w-5 text-slate-500 flex-shrink-0" />
                     <div><p className="text-xs text-slate-500">Frete</p><p className="font-bold text-sm">{Number(orderDetails.frete).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p></div>
                   </div>
                   <div className="bg-slate-50 p-3 rounded border flex gap-3 items-center">
-                    <DollarSign className="h-5 w-5 text-slate-500" />
+                    <DollarSign className="h-5 w-5 text-slate-500 flex-shrink-0" />
                     <div><p className="text-xs text-slate-500">Total</p><p className="font-bold text-sm text-green-700">{Number(orderDetails.total_pedido).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p></div>
                   </div>
                </div>
-               <div className="border rounded-lg overflow-hidden max-h-[200px] overflow-y-auto">
-                  <table className="w-full text-sm">
+               
+               <div className="border rounded-lg overflow-x-auto max-h-[200px] overflow-y-auto">
+                  <table className="w-full text-sm min-w-[400px]">
                     <thead className="bg-slate-100 text-slate-600 sticky top-0">
                       <tr><th className="px-3 py-2 text-left">Produto</th><th className="px-3 py-2 text-center">Qtd</th><th className="px-3 py-2 text-right">Total</th></tr>
                     </thead>

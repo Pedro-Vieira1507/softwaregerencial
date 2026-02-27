@@ -18,7 +18,7 @@ import NotFound from "./pages/NotFound";
 import WMS from "./pages/WMS";
 
 // Aqui está a correção: Importar Pedidos apenas uma vez
-import Pedidos from "./pages/pedidos"; 
+import Pedidos from "./pages/Pedidos"; 
 
 const queryClient = new QueryClient();
 

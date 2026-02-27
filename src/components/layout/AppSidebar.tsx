@@ -40,8 +40,8 @@ export function AppSidebar() {
   return (
     <aside 
       className={cn(
-        // Adicionamos 'h-[100dvh]' e 'sticky top-0' para travar na tela sem dar scroll
-        "bg-sidebar text-sidebar-foreground flex flex-col border-r border-sidebar-border transition-all duration-300 h-[100dvh] sticky top-0",
+        // ADICIONADO AQUI: 'hidden md:flex' para esconder no mobile e mostrar a partir do tamanho 'md'
+        "bg-sidebar text-sidebar-foreground flex-col border-r border-sidebar-border transition-all duration-300 h-[100dvh] sticky top-0 z-50",
         collapsed ? "w-16" : "w-64"
       )}
     >
