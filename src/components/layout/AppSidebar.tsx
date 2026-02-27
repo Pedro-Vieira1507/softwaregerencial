@@ -4,7 +4,6 @@ import {
   Package, 
   ShoppingCart, 
   Settings, 
-  Link2,
   ChevronLeft,
   ChevronRight,
   Truck,
@@ -40,27 +39,32 @@ export function AppSidebar() {
   return (
     <aside 
       className={cn(
-        // ADICIONADO AQUI: 'hidden md:flex' para esconder no mobile e mostrar a partir do tamanho 'md'
-        "bg-sidebar text-sidebar-foreground flex-col border-r border-sidebar-border transition-all duration-300 h-[100dvh] sticky top-0 z-50",
-        collapsed ? "w-16" : "w-64"
+        // Removido o 'hidden md:flex' para que o conteúdo renderize normalmente no mobile
+        "flex bg-stone-950 text-stone-300 flex-col border-r border-stone-800/60 transition-all duration-300 h-[100dvh] sticky top-0 z-50",
+        collapsed ? "w-20" : "w-64"
       )}
     >
-      {/* Brand */}
-      <div className="p-4 border-b border-sidebar-border flex items-center gap-3">
-        <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center flex-shrink-0">
-          <Link2 className="w-5 h-5 text-primary-foreground" />
-        </div>
-        {!collapsed && (
-          <h1 className="font-heading font-semibold text-lg text-sidebar-primary-foreground tracking-tight truncate">
-            Integration Hub
-          </h1>
+      {/* Brand - Logo ocupando todo o espaço */}
+      <div className="border-b border-stone-800/60 flex items-center justify-center w-full h-24 overflow-hidden bg-black/20">
+        {!collapsed ? (
+          <img 
+            src="/logo.png" 
+            alt="Logo" 
+            className="w-full h-full object-cover" 
+          />
+        ) : (
+          <img 
+            src="/logo.png" 
+            alt="Logo" 
+            className="h-10 w-10 object-cover rounded-md" 
+          />
         )}
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-3 space-y-1 overflow-y-auto custom-scrollbar">
+      <nav className="flex-1 p-4 space-y-1.5 overflow-y-auto custom-scrollbar">
         {!collapsed && (
-          <span className="text-xs uppercase text-sidebar-muted font-semibold px-2 py-2 block">
+          <span className="text-xs uppercase text-stone-500 font-bold px-3 py-2 block mb-2 tracking-wider">
             Menu Principal
           </span>
         )}
@@ -71,78 +75,79 @@ export function AppSidebar() {
               key={item.path}
               to={item.path}
               className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-md font-medium transition-all duration-200",
+                "flex items-center gap-3 px-3 py-3 rounded-xl font-medium transition-all duration-200",
                 isActive 
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground" 
-                  : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+                  ? "bg-stone-900 text-stone-100 border-l-2 border-red-600 shadow-sm" 
+                  : "text-stone-400 hover:bg-stone-800/40 hover:text-stone-200 border-l-2 border-transparent"
               )}
             >
-              <item.icon className="w-5 h-5 flex-shrink-0" />
+              <item.icon className={cn(
+                "w-5 h-5 flex-shrink-0 transition-colors",
+                isActive ? "text-red-500" : "text-stone-400"
+              )} />
               {!collapsed && <span>{item.label}</span>}
             </Link>
           );
         })}
       </nav>
 
-      {/* Rodapé Compacto (Usuário + Botão de Recolher) */}
-      <div className="border-t border-sidebar-border bg-sidebar-accent/10 p-2 space-y-1">
+      {/* Rodapé Compacto */}
+      <div className="border-t border-stone-800/60 p-3 space-y-1">
         {!collapsed ? (
           <>
-            <div className="flex items-center gap-2 px-2 py-1 mb-2">
-              <UserCircle className="w-8 h-8 text-sidebar-muted-foreground flex-shrink-0" />
+            <div className="flex items-center gap-3 px-2 py-2 mb-2">
+              <UserCircle className="w-9 h-9 text-stone-400 flex-shrink-0" />
               <div className="flex flex-col overflow-hidden leading-tight">
-                <span className="text-sm font-bold text-sidebar-foreground truncate">Minha Conta</span>
-                <span className="text-[10px] text-sidebar-muted-foreground truncate">Gerenciar Acesso</span>
+                <span className="text-sm font-bold text-stone-200 truncate">Minha Conta</span>
+                <span className="text-xs text-stone-500 truncate">Gerenciar Acesso</span>
               </div>
             </div>
             
             <Link 
               to="/conta" 
-              className="flex items-center gap-3 px-2 py-2 rounded-md text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-all duration-200"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-stone-400 hover:bg-stone-800/50 hover:text-stone-200 transition-all duration-200"
             >
-              <KeyRound className="w-4 h-4 flex-shrink-0" />
+              <KeyRound className="w-5 h-5 flex-shrink-0" />
               <span>Alterar Senha</span>
             </Link>
 
             <button 
               onClick={handleLogout}
-              className="flex items-center gap-3 px-2 py-2 rounded-md text-sm font-medium text-red-500 hover:bg-red-500/10 transition-all duration-200 w-full text-left"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-red-500 hover:bg-red-950/30 transition-all duration-200 w-full text-left"
             >
-              <LogOut className="w-4 h-4 flex-shrink-0" />
+              <LogOut className="w-5 h-5 flex-shrink-0" />
               <span>Sair do Sistema</span>
             </button>
           </>
         ) : (
-          <div className="flex flex-col items-center gap-1">
-            <UserCircle className="w-7 h-7 text-sidebar-muted-foreground mb-1 mt-1" />
+          <div className="flex flex-col items-center gap-2">
+            <UserCircle className="w-8 h-8 text-stone-400 mb-2 mt-1" />
             
             <Link 
               to="/conta" 
               title="Alterar Senha"
-              className="p-2 rounded-md text-sidebar-foreground hover:bg-sidebar-accent transition-all duration-200"
+              className="p-2.5 rounded-lg text-stone-400 hover:bg-stone-800/50 hover:text-stone-200 transition-all duration-200"
             >
-              <KeyRound className="w-4 h-4" />
+              <KeyRound className="w-5 h-5" />
             </Link>
 
             <button 
               onClick={handleLogout}
               title="Sair do Sistema"
-              className="p-2 rounded-md text-red-500 hover:bg-red-500/10 transition-all duration-200"
+              className="p-2.5 rounded-lg text-red-500 hover:bg-red-950/30 transition-all duration-200"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="w-5 h-5" />
             </button>
           </div>
         )}
 
-        {/* Linha separadora discreta */}
-        <div className="h-px bg-sidebar-border my-1 w-full" />
+        <div className="h-px bg-stone-800/60 my-2 w-full" />
 
-        {/* Botão Recolher integrado no final */}
         <Button
           variant="ghost"
           size="sm"
           onClick={() => setCollapsed(!collapsed)}
-          className="w-full justify-center text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground h-8"
+          className="w-full justify-center text-stone-500 hover:bg-stone-800/50 hover:text-stone-300 h-10"
         >
           {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
         </Button>

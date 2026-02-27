@@ -42,7 +42,7 @@ export function MainLayout() {
 
             {/* Título do Cabeçalho Mobile */}
             <div className="font-heading font-bold text-lg tracking-tight text-foreground">
-              Integration Hub
+              Convergex
             </div>
           </div>
           
