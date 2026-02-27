@@ -215,19 +215,20 @@ export default function Dashboard() {
   const currentRecurrenceData = recurringDataByMonth[selectedMonth] || [];
 
   return (
-    // FORÇADO: max-w-full e overflow-x-hidden para impedir que qualquer filho quebre a tela
-    <div className="w-full max-w-full overflow-x-hidden space-y-4 sm:space-y-6 pb-6">
+    // Fundo geral do Dashboard para Stone 950 (Apenas se o componente pai não prover a cor)
+    <div className="w-full max-w-full overflow-x-hidden space-y-4 sm:space-y-6 pb-6 text-stone-200">
       
       {/* Cabeçalho */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 w-full">
-        {/* Garantimos que o PageHeader não crie overflow */}
         <div className="w-full min-w-0">
+           {/* Se o seu PageHeader não tiver suporte a dark mode nativo, ele pode precisar de ajustes lá dentro também */}
            <PageHeader title="Dashboard" description="Visão geral das integrações e status do sistema" />
         </div>
         <Button 
           onClick={() => handleSync(false)} 
           disabled={syncing} 
-          className="w-full sm:w-auto shadow-sm flex-shrink-0"
+          variant="outline"
+          className="w-full sm:w-auto shadow-sm flex-shrink-0 bg-stone-900 border-stone-700 text-stone-200 hover:bg-stone-800 hover:text-white"
         >
           <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
           {syncing ? 'Atualizando...' : 'Atualizar Dados'}
@@ -237,15 +238,15 @@ export default function Dashboard() {
       {/* GRELHA DE CARTÕES DE ESTATÍSTICA */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
         
-        {/* Usar 'w-full min-w-0' nos blocos da grelha impede que cartões longos empurrem os limites */}
         <div className="w-full min-w-0 cursor-pointer transition-transform hover:-translate-y-1" onClick={() => openHistory('recurrence')}>
+          {/* Cards substituídos para um estilo escuro com bordas sutis */}
           <StatsCard
             title="Recorrência (Total)"
             value={overallRecurringCount.toString()}
             icon={Users}
             variant="primary"
             trend={{ }} 
-            className="border-purple-200 bg-purple-50/30 h-full w-full shadow-sm hover:shadow-md transition-shadow"
+            className="bg-stone-900 border-stone-800 text-stone-100 h-full w-full shadow-sm hover:border-red-600/50 transition-colors"
           />
         </div>
 
@@ -256,7 +257,7 @@ export default function Dashboard() {
             icon={ShoppingCart}
             variant="success"
             trend={{ }} 
-            className="border-green-200 bg-green-50/30 h-full w-full shadow-sm hover:shadow-md transition-shadow"
+            className="bg-stone-900 border-stone-800 text-stone-100 h-full w-full shadow-sm hover:border-red-600/50 transition-colors"
           />
         </div>
 
@@ -267,7 +268,7 @@ export default function Dashboard() {
             icon={TrendingUp}
             variant="primary"
             trend 
-            className="border-blue-200 bg-blue-50/30 h-full w-full shadow-sm hover:shadow-md transition-shadow"
+            className="bg-stone-900 border-stone-800 text-stone-100 h-full w-full shadow-sm hover:border-red-600/50 transition-colors"
           />
         </div>
 
@@ -278,7 +279,7 @@ export default function Dashboard() {
               icon={AlertTriangle}
               variant={stockAlerts.length > 0 ? "warning" : "primary"}
               trend={{ }} 
-              className="h-full w-full shadow-sm"
+              className="bg-stone-900 border-stone-800 text-stone-100 h-full w-full shadow-sm border-l-2 border-l-red-600"
             />
         </div>
       </div>
@@ -286,14 +287,14 @@ export default function Dashboard() {
       {/* GRELHA INFERIOR: ÚLTIMOS PEDIDOS E ALERTA ESTOQUE */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 w-full">
         
-        <Card className="shadow-sm border-border flex flex-col h-full overflow-hidden w-full min-w-0">
-          <CardHeader className="flex flex-row items-center justify-between pb-2 bg-slate-50/50 flex-wrap gap-2">
+        <Card className="shadow-sm bg-stone-900 border-stone-800 flex flex-col h-full overflow-hidden w-full min-w-0 text-stone-200">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 bg-stone-950/50 flex-wrap gap-2 border-b border-stone-800">
             <div className="min-w-0 flex-1">
-              <CardTitle className="text-base sm:text-lg font-heading truncate">Últimos Pedidos</CardTitle>
-              <CardDescription className="text-xs sm:text-sm truncate">Sincronizado com Forlab Express</CardDescription>
+              <CardTitle className="text-base sm:text-lg font-heading truncate text-stone-100">Últimos Pedidos</CardTitle>
+              <CardDescription className="text-xs sm:text-sm truncate text-stone-400">Sincronizado com Forlab Express</CardDescription>
             </div>
-            <Button variant="ghost" size="sm" asChild className="flex-shrink-0">
-                <Link to="/pedidos" className="text-blue-600 hover:text-blue-800 text-xs sm:text-sm px-0 sm:px-3">
+            <Button variant="ghost" size="sm" asChild className="flex-shrink-0 hover:bg-stone-800">
+                <Link to="/pedidos" className="text-red-500 hover:text-red-400 text-xs sm:text-sm px-0 sm:px-3">
                     Ver todos <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4 ml-1" />
                 </Link>
             </Button>
@@ -301,15 +302,15 @@ export default function Dashboard() {
           <CardContent className="flex-1 pt-4 px-3 sm:px-6">
             <div className="space-y-3">
               {loadingOrders ? (
-                <div className="flex justify-center py-8 text-gray-400"><Loader2 className="w-6 h-6 animate-spin" /></div>
+                <div className="flex justify-center py-8 text-stone-500"><Loader2 className="w-6 h-6 animate-spin" /></div>
               ) : recentOrders.map((order) => (
-                <div key={order.id} className="flex items-center justify-between p-3 rounded-lg border border-gray-100 bg-white hover:bg-gray-50 transition-all cursor-pointer gap-2" onClick={() => handleOrderClick(order.increment_id)}>
+                <div key={order.id} className="flex items-center justify-between p-3 rounded-lg border border-stone-800 bg-stone-950 hover:bg-stone-800/80 transition-all cursor-pointer gap-2" onClick={() => handleOrderClick(order.increment_id)}>
                   <div className="min-w-0 flex-1">
-                    <p className="font-bold text-sm text-blue-600">#{order.increment_id}</p>
-                    <p className="text-xs text-gray-500 font-medium truncate">{order.customer_firstname} {order.customer_lastname}</p>
+                    <p className="font-bold text-sm text-red-500">#{order.increment_id}</p>
+                    <p className="text-xs text-stone-400 font-medium truncate">{order.customer_firstname} {order.customer_lastname}</p>
                   </div>
                   <div className="text-right flex-shrink-0">
-                    <p className="font-bold text-sm text-gray-800">{Number(order.grand_total).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>
+                    <p className="font-bold text-sm text-stone-200">{Number(order.grand_total).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>
                     <StatusBadgeDashboard status={order.status} />
                   </div>
                 </div>
@@ -318,11 +319,11 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="shadow-sm border-border flex flex-col h-full overflow-hidden w-full min-w-0">
-          <CardHeader className="flex flex-row items-center justify-between pb-2 bg-slate-50/50 flex-wrap gap-2">
-            <CardTitle className="text-base sm:text-lg font-heading truncate flex-1 min-w-0">Alerta de Estoque</CardTitle>
-            <Button variant="ghost" size="sm" asChild className="flex-shrink-0">
-                <Link to="/estoque" className="text-primary text-xs sm:text-sm px-0 sm:px-3">
+        <Card className="shadow-sm bg-stone-900 border-stone-800 flex flex-col h-full overflow-hidden w-full min-w-0 text-stone-200">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 bg-stone-950/50 flex-wrap gap-2 border-b border-stone-800">
+            <CardTitle className="text-base sm:text-lg font-heading truncate flex-1 min-w-0 text-stone-100">Alerta de Estoque</CardTitle>
+            <Button variant="ghost" size="sm" asChild className="flex-shrink-0 hover:bg-stone-800">
+                <Link to="/estoque" className="text-red-500 hover:text-red-400 text-xs sm:text-sm px-0 sm:px-3">
                     Ver todos <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4 ml-1" />
                 </Link>
             </Button>
@@ -330,28 +331,28 @@ export default function Dashboard() {
           <CardContent className="pt-4 px-3 sm:px-6">
             <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1 sm:pr-2 custom-scrollbar">
               {loadingStock ? (
-                <div className="flex justify-center py-4 text-gray-400"><Loader2 className="w-6 h-6 animate-spin" /></div>
+                <div className="flex justify-center py-4 text-stone-500"><Loader2 className="w-6 h-6 animate-spin" /></div>
               ) : stockAlerts.length > 0 ? (
                 stockAlerts.map((item) => (
-                  <div key={item.sku} className="flex items-center justify-between p-3 rounded-lg bg-red-50 border border-red-100 gap-2">
+                  <div key={item.sku} className="flex items-center justify-between p-3 rounded-lg bg-red-950/20 border border-red-900/30 gap-2">
                     <div className="overflow-hidden min-w-0 flex-1">
-                      <p className="font-medium text-sm text-red-900 truncate" title={item.nome}>
+                      <p className="font-medium text-sm text-red-400 truncate" title={item.nome}>
                         {item.nome || "Produto sem nome"}
                       </p>
-                      <p className="text-xs text-red-700/70 font-mono truncate">{item.sku}</p>
+                      <p className="text-xs text-red-500/70 font-mono truncate">{item.sku}</p>
                     </div>
                     <div className="text-right flex-shrink-0 w-[65px] sm:w-[80px]">
-                      <p className="font-bold text-sm text-red-600 truncate">
+                      <p className="font-bold text-sm text-red-500 truncate">
                         {item.estoque} un
                       </p>
-                      <p className="text-[10px] sm:text-xs text-red-500 font-semibold truncate">
+                      <p className="text-[10px] sm:text-xs text-red-600 font-semibold truncate">
                         Mín: {item.qtyminstock}
                       </p>
                     </div>
                   </div>
                 ))
               ) : (
-                <div className="text-center py-6 text-gray-500 bg-gray-50 rounded-lg border border-dashed">
+                <div className="text-center py-6 text-stone-500 bg-stone-950/50 rounded-lg border border-dashed border-stone-800">
                   <Package className="w-8 h-8 mx-auto mb-2 opacity-20" />
                   <p className="text-sm">Nenhum produto com estoque crítico.</p>
                 </div>
@@ -361,16 +362,16 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* MODAIS (MANTIDOS IGUAIS) */}
+      {/* MODAIS: Estilização para o tema escuro */}
       <Dialog open={isHistoryModalOpen} onOpenChange={setIsHistoryModalOpen}>
-        <DialogContent className="w-[95vw] sm:max-w-[500px] p-4 sm:p-6">
+        <DialogContent className="w-[95vw] sm:max-w-[500px] p-4 sm:p-6 bg-stone-900 border-stone-800 text-stone-200">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              {historyType === 'orders' && <><Package className="h-5 w-5 text-green-600" /> Histórico de Volume de Pedidos</>}
-              {historyType === 'revenue' && <><BarChart3 className="h-5 w-5 text-blue-600" /> Histórico de Faturamento</>}
-              {historyType === 'recurrence' && <><Users className="h-5 w-5 text-purple-600" /> Clientes Recorrentes</>}
+            <DialogTitle className="flex items-center gap-2 text-stone-100">
+              {historyType === 'orders' && <><Package className="h-5 w-5 text-red-500" /> Histórico de Volume de Pedidos</>}
+              {historyType === 'revenue' && <><BarChart3 className="h-5 w-5 text-red-500" /> Histórico de Faturamento</>}
+              {historyType === 'recurrence' && <><Users className="h-5 w-5 text-red-500" /> Clientes Recorrentes</>}
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-stone-400">
               {historyType === 'orders' && "Quantidade de pedidos recebidos nos últimos 12 meses."}
               {historyType === 'revenue' && "Valores faturados (exclui pendentes e cancelados) nos últimos 12 meses."}
               {historyType === 'recurrence' && "Clientes que possuem mais de 1 compra faturada no período selecionado."}
@@ -379,11 +380,11 @@ export default function Dashboard() {
           
           {historyType === 'recurrence' && (
             <div className="mt-4 mb-2">
-              <label className="text-xs font-semibold text-slate-500 mb-1 block">Filtrar por Período</label>
+              <label className="text-xs font-semibold text-stone-400 mb-1 block">Filtrar por Período</label>
               <select 
                 value={selectedMonth} 
                 onChange={(e) => setSelectedMonth(e.target.value)}
-                className="w-full border-slate-200 border rounded-md p-2 text-sm bg-slate-50 outline-none focus:border-purple-400 capitalize"
+                className="w-full border-stone-700 border rounded-md p-2 text-sm bg-stone-950 text-stone-200 outline-none focus:border-red-500 capitalize"
               >
                 {availableMonths.map(m => (
                   <option key={m} value={m} className="capitalize">{m}</option>
@@ -392,57 +393,57 @@ export default function Dashboard() {
             </div>
           )}
 
-          <div className="mt-4 border rounded-lg overflow-x-auto max-h-[300px] overflow-y-auto">
+          <div className="mt-4 border border-stone-800 rounded-lg overflow-x-auto max-h-[300px] overflow-y-auto">
              <table className="w-full text-sm min-w-[350px]">
-                <thead className="bg-slate-100 text-slate-700 sticky top-0">
+                <thead className="bg-stone-950 text-stone-400 sticky top-0">
                   <tr>
                     {historyType === 'recurrence' ? (
                       <>
-                        <th className="px-4 py-3 text-left">Nome do Cliente</th>
-                        <th className="px-4 py-3 text-center">Nº de Compras</th>
-                        <th className="px-4 py-3 text-right">Total Gasto</th>
+                        <th className="px-4 py-3 text-left font-semibold">Nome do Cliente</th>
+                        <th className="px-4 py-3 text-center font-semibold">Nº de Compras</th>
+                        <th className="px-4 py-3 text-right font-semibold">Total Gasto</th>
                       </>
                     ) : (
                       <>
-                        <th className="px-4 py-3 text-left">Mês/Ano</th>
-                        {historyType === 'orders' && <th className="px-4 py-3 text-center">Qtde Pedidos</th>}
-                        {historyType === 'revenue' && <th className="px-4 py-3 text-right">Valor Total</th>}
+                        <th className="px-4 py-3 text-left font-semibold">Mês/Ano</th>
+                        {historyType === 'orders' && <th className="px-4 py-3 text-center font-semibold">Qtde Pedidos</th>}
+                        {historyType === 'revenue' && <th className="px-4 py-3 text-right font-semibold">Valor Total</th>}
                       </>
                     )}
                   </tr>
                 </thead>
-                <tbody className="divide-y">
+                <tbody className="divide-y divide-stone-800">
                   {loadingHistory ? (
-                    <tr><td colSpan={3} className="p-4 text-center">Carregando dados...</td></tr>
+                    <tr><td colSpan={3} className="p-4 text-center text-stone-500">Carregando dados...</td></tr>
                   ) : historyType === 'recurrence' ? (
                     currentRecurrenceData.length > 0 ? (
                       currentRecurrenceData.map((item, idx) => (
-                        <tr key={idx} className="hover:bg-slate-50">
+                        <tr key={idx} className="hover:bg-stone-800/50">
                           <td className="px-4 py-3 capitalize">{item.name.toLowerCase()}</td>
                           <td className="px-4 py-3 text-center">
-                            <span className="bg-purple-100 px-2.5 py-0.5 rounded-full text-xs font-bold text-purple-800">
+                            <span className="bg-red-950/50 px-2.5 py-0.5 rounded-full text-xs font-bold text-red-400 border border-red-900/30">
                               {item.count}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-right font-medium text-green-700">
+                          <td className="px-4 py-3 text-right font-medium text-stone-200">
                             {item.total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                           </td>
                         </tr>
                       ))
                     ) : (
-                      <tr><td colSpan={3} className="p-4 text-center text-slate-500">Nenhum cliente recorrente encontrado neste período.</td></tr>
+                      <tr><td colSpan={3} className="p-4 text-center text-stone-500">Nenhum cliente recorrente encontrado.</td></tr>
                     )
                   ) : (
                     historyData.map((item, idx) => (
-                      <tr key={idx} className={`hover:bg-slate-50 ${idx === 0 ? 'bg-slate-50 font-medium' : ''}`}>
+                      <tr key={idx} className={`hover:bg-stone-800/50 ${idx === 0 ? 'bg-stone-800/20 font-medium' : ''}`}>
                         <td className="px-4 py-3 capitalize">{item.month}</td>
                         {historyType === 'orders' && (
                           <td className="px-4 py-3 text-center">
-                            <span className="bg-green-100 px-2.5 py-0.5 rounded-full text-xs font-bold text-green-800">{item.count}</span>
+                            <span className="bg-stone-800 px-2.5 py-0.5 rounded-full text-xs font-bold text-stone-300">{item.count}</span>
                           </td>
                         )}
                         {historyType === 'revenue' && (
-                          <td className="px-4 py-3 text-right font-medium text-blue-700">
+                          <td className="px-4 py-3 text-right font-medium text-stone-200">
                             {item.total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                           </td>
                         )}
@@ -456,33 +457,33 @@ export default function Dashboard() {
       </Dialog>
 
       <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>
-        <DialogContent className="w-[95vw] sm:max-w-[600px] p-4 sm:p-6">
+        <DialogContent className="w-[95vw] sm:max-w-[600px] p-4 sm:p-6 bg-stone-900 border-stone-800 text-stone-200">
           <DialogHeader>
-            <DialogTitle>Detalhes do Pedido #{selectedOrderId}</DialogTitle>
-            <DialogDescription>Consulta em tempo real</DialogDescription>
+            <DialogTitle className="text-stone-100">Detalhes do Pedido <span className="text-red-500">#{selectedOrderId}</span></DialogTitle>
+            <DialogDescription className="text-stone-400">Consulta em tempo real</DialogDescription>
           </DialogHeader>
           {loadingDetails ? (
-             <div className="flex flex-col items-center py-8"><Loader2 className="h-8 w-8 animate-spin text-blue-600" /></div>
+             <div className="flex flex-col items-center py-8"><Loader2 className="h-8 w-8 animate-spin text-red-500" /></div>
           ) : orderDetails ? (
             <div className="space-y-6">
                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="bg-slate-50 p-3 rounded border flex gap-3 items-center">
-                    <Truck className="h-5 w-5 text-slate-500 flex-shrink-0" />
-                    <div><p className="text-xs text-slate-500">Frete</p><p className="font-bold text-sm">{Number(orderDetails.frete).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p></div>
+                  <div className="bg-stone-950 p-3 rounded border border-stone-800 flex gap-3 items-center">
+                    <Truck className="h-5 w-5 text-stone-500 flex-shrink-0" />
+                    <div><p className="text-xs text-stone-400">Frete</p><p className="font-bold text-sm text-stone-200">{Number(orderDetails.frete).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p></div>
                   </div>
-                  <div className="bg-slate-50 p-3 rounded border flex gap-3 items-center">
-                    <DollarSign className="h-5 w-5 text-slate-500 flex-shrink-0" />
-                    <div><p className="text-xs text-slate-500">Total</p><p className="font-bold text-sm text-green-700">{Number(orderDetails.total_pedido).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p></div>
+                  <div className="bg-stone-950 p-3 rounded border border-stone-800 flex gap-3 items-center">
+                    <DollarSign className="h-5 w-5 text-stone-500 flex-shrink-0" />
+                    <div><p className="text-xs text-stone-400">Total</p><p className="font-bold text-sm text-red-400">{Number(orderDetails.total_pedido).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p></div>
                   </div>
                </div>
                
-               <div className="border rounded-lg overflow-x-auto max-h-[200px] overflow-y-auto">
+               <div className="border border-stone-800 rounded-lg overflow-x-auto max-h-[200px] overflow-y-auto">
                   <table className="w-full text-sm min-w-[400px]">
-                    <thead className="bg-slate-100 text-slate-600 sticky top-0">
-                      <tr><th className="px-3 py-2 text-left">Produto</th><th className="px-3 py-2 text-center">Qtd</th><th className="px-3 py-2 text-right">Total</th></tr>
+                    <thead className="bg-stone-950 text-stone-400 sticky top-0">
+                      <tr><th className="px-3 py-2 text-left font-semibold">Produto</th><th className="px-3 py-2 text-center font-semibold">Qtd</th><th className="px-3 py-2 text-right font-semibold">Total</th></tr>
                     </thead>
-                    <tbody className="divide-y">{orderDetails.itens.map((item: any, idx: number) => (
-                        <tr key={idx}><td className="px-3 py-2 text-xs truncate max-w-[200px]">{item.nome}</td><td className="px-3 py-2 text-center text-xs">{Number(item.qtd)}</td><td className="px-3 py-2 text-right text-xs">{(Number(item.preco) * Number(item.qtd)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td></tr>
+                    <tbody className="divide-y divide-stone-800">{orderDetails.itens.map((item: any, idx: number) => (
+                        <tr key={idx} className="hover:bg-stone-800/30"><td className="px-3 py-2 text-xs truncate max-w-[200px]">{item.nome}</td><td className="px-3 py-2 text-center text-xs">{Number(item.qtd)}</td><td className="px-3 py-2 text-right text-xs">{(Number(item.preco) * Number(item.qtd)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td></tr>
                     ))}</tbody>
                   </table>
                </div>
@@ -495,6 +496,15 @@ export default function Dashboard() {
 }
 
 function StatusBadgeDashboard({ status }: { status: string }) {
-  const styles: Record<string, string> = { pending: "text-yellow-700 bg-yellow-50", processing: "text-blue-700 bg-blue-50", integrado: "text-indigo-700 bg-indigo-50", complete: "text-green-700 bg-green-50", faturado: "text-purple-700 bg-purple-50", closed: "text-gray-700 bg-gray-50", canceled: "text-red-700 bg-red-50" };
-  return <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${styles[status?.toLowerCase()] || "text-gray-600 bg-gray-50"}`}>{status}</span>;
+  // Cores atualizadas para combinar com o tema escuro/pedra, mantendo a legibilidade
+  const styles: Record<string, string> = { 
+    pending: "text-yellow-400 bg-yellow-950/40 border border-yellow-900/50", 
+    processing: "text-blue-400 bg-blue-950/40 border border-blue-900/50", 
+    integrado: "text-indigo-400 bg-indigo-950/40 border border-indigo-900/50", 
+    complete: "text-green-400 bg-green-950/40 border border-green-900/50", 
+    faturado: "text-purple-400 bg-purple-950/40 border border-purple-900/50", 
+    closed: "text-stone-400 bg-stone-800 border border-stone-700", 
+    canceled: "text-red-400 bg-red-950/40 border border-red-900/50" 
+  };
+  return <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${styles[status?.toLowerCase()] || "text-stone-400 bg-stone-800"}`}>{status}</span>;
 }

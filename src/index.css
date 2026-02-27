@@ -6,94 +6,97 @@
 
 @layer base {
   :root {
-    --background: 210 40% 96%;
-    --foreground: 222 47% 11%;
+    /* Fundo principal da aplicação (Stone 950) */
+    --background: 20 14% 4%;
+    /* Texto principal (Stone 200) */
+    --foreground: 24 9% 90%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    /* Cards e Modais (Stone 900) */
+    --card: 24 10% 10%;
+    --card-foreground: 24 9% 90%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --popover: 24 10% 10%;
+    --popover-foreground: 24 9% 90%;
 
-    --primary: 217 91% 60%;
+    /* Cor Primária: Vermelho ConvergeX (Red 600) */
+    --primary: 0 72% 51%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 215 20% 65%;
-    --secondary-foreground: 222 47% 11%;
+    /* Cores secundárias e de destaque sutis (Stone 800) */
+    --secondary: 24 7% 15%;
+    --secondary-foreground: 24 9% 90%;
 
-    --muted: 214 32% 91%;
-    --muted-foreground: 215 16% 47%;
+    /* Elementos silenciados / Textos secundários (Stone 800/400) */
+    --muted: 24 7% 15%;
+    --muted-foreground: 24 5% 64%;
 
-    --accent: 217 91% 60%;
-    --accent-foreground: 0 0% 100%;
+    /* Estados de Hover (Stone 800) */
+    --accent: 24 7% 15%;
+    --accent-foreground: 24 9% 90%;
 
+    /* Mensagens de erro / Alertas (Vermelho) */
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
+    /* Mensagens de sucesso (Verde) e aviso (Amarelo) mantidas */
     --success: 160 84% 39%;
     --success-foreground: 0 0% 100%;
-
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
 
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 217 91% 60%;
+    /* Bordas e Inputs (Stone 800) */
+    --border: 24 7% 15%;
+    --input: 24 7% 15%;
+    
+    /* Foco do teclado (Vermelho ConvergeX) */
+    --ring: 0 72% 51%;
 
     --radius: 0.625rem;
 
-    /* Sidebar tokens */
-    --sidebar-background: 222 47% 11%;
-    --sidebar-foreground: 215 20% 65%;
-    --sidebar-primary: 217 91% 60%;
+    /* Tokens específicos da Sidebar */
+    --sidebar-background: 20 14% 4%;
+    --sidebar-foreground: 24 5% 64%;
+    --sidebar-primary: 0 72% 51%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 217 33% 17%;
-    --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 217 33% 17%;
-    --sidebar-ring: 217 91% 60%;
-    --sidebar-muted: 215 16% 47%;
+    --sidebar-accent: 24 10% 10%;
+    --sidebar-accent-foreground: 24 9% 90%;
+    --sidebar-border: 24 7% 15%;
+    --sidebar-ring: 0 72% 51%;
+    --sidebar-muted: 24 7% 15%;
 
-    /* Custom tokens */
-    --card-shadow: 0 1px 3px hsla(0, 0%, 0%, 0.05);
-    --card-shadow-md: 0 4px 6px -1px hsla(0, 0%, 0%, 0.05);
+    --card-shadow: 0 1px 3px hsla(0, 0%, 0%, 0.5);
+    --card-shadow-md: 0 4px 6px -1px hsla(0, 0%, 0%, 0.5);
   }
 
+  /* Aplico as mesmas cores no modo dark para garantir que o ConvergeX seja SEMPRE escuro */
   .dark {
-    --background: 222 47% 11%;
-    --foreground: 210 40% 98%;
-
-    --card: 217 33% 17%;
-    --card-foreground: 210 40% 98%;
-
-    --popover: 217 33% 17%;
-    --popover-foreground: 210 40% 98%;
-
-    --primary: 217 91% 60%;
+    --background: 20 14% 4%;
+    --foreground: 24 9% 90%;
+    --card: 24 10% 10%;
+    --card-foreground: 24 9% 90%;
+    --popover: 24 10% 10%;
+    --popover-foreground: 24 9% 90%;
+    --primary: 0 72% 51%;
     --primary-foreground: 0 0% 100%;
-
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 40% 98%;
-
-    --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 65%;
-
-    --accent: 217 33% 17%;
-    --accent-foreground: 210 40% 98%;
-
-    --destructive: 0 63% 31%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 217 33% 17%;
-    --input: 217 33% 17%;
-    --ring: 213 27% 84%;
-    --sidebar-background: 222 47% 8%;
-    --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 217 91% 60%;
+    --secondary: 24 7% 15%;
+    --secondary-foreground: 24 9% 90%;
+    --muted: 24 7% 15%;
+    --muted-foreground: 24 5% 64%;
+    --accent: 24 7% 15%;
+    --accent-foreground: 24 9% 90%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 24 7% 15%;
+    --input: 24 7% 15%;
+    --ring: 0 72% 51%;
+    --sidebar-background: 20 14% 4%;
+    --sidebar-foreground: 24 5% 64%;
+    --sidebar-primary: 0 72% 51%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 217 33% 15%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 217 33% 15%;
-    --sidebar-ring: 217 91% 60%;
+    --sidebar-accent: 24 10% 10%;
+    --sidebar-accent-foreground: 24 9% 90%;
+    --sidebar-border: 24 7% 15%;
+    --sidebar-ring: 0 72% 51%;
   }
 }
 
@@ -115,5 +118,20 @@
 @layer utilities {
   .font-heading {
     font-family: 'Poppins', sans-serif;
+  }
+
+  /* Barras de rolagem personalizadas para o tema escuro */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-stone-800 rounded-full;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    @apply bg-stone-700;
   }
 }

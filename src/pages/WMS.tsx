@@ -47,13 +47,13 @@ const createCols = (numCols: number, numLevels: number, defaultAddrs: string[] =
 };
 
 const DEFAULT_LAYOUT: MapElement[] = [
-  { id: '1', name: 'PAREDE ESQ.', x: 0, y: 0, w: 60, h: 600, baseLevels: 4, color: 'bg-orange-400', cols: createCols(4, 4, ["3-F", "3-E", "3-D", "3-C"]) },
-  { id: '2', name: 'PAREDE FUNDO', x: 60, y: 0, w: 340, h: 60, baseLevels: 4, color: 'bg-red-500', cols: createCols(4, 4, ["4-A", "4-B", "4-C", "4-D"]) },
-  { id: '3', name: 'CENTRAL', x: 140, y: 140, w: 140, h: 360, baseLevels: 4, color: 'bg-yellow-400', cols: createCols(6, 4, ["1-A, 2-A", "1-B, 2-B", "1-C, 2-C", "1-D, 1-E"]) },
-  { id: '4', name: 'ENTRADA', x: 300, y: 580, w: 100, h: 20, baseLevels: 1, color: 'bg-green-500', cols: createCols(1, 1) }
+  { id: '1', name: 'PAREDE ESQ.', x: 0, y: 0, w: 60, h: 600, baseLevels: 4, color: 'bg-orange-500', cols: createCols(4, 4, ["3-F", "3-E", "3-D", "3-C"]) },
+  { id: '2', name: 'PAREDE FUNDO', x: 60, y: 0, w: 340, h: 60, baseLevels: 4, color: 'bg-red-600', cols: createCols(4, 4, ["4-A", "4-B", "4-C", "4-D"]) },
+  { id: '3', name: 'CENTRAL', x: 140, y: 140, w: 140, h: 360, baseLevels: 4, color: 'bg-yellow-500', cols: createCols(6, 4, ["1-A, 2-A", "1-B, 2-B", "1-C, 2-C", "1-D, 1-E"]) },
+  { id: '4', name: 'ENTRADA', x: 300, y: 580, w: 100, h: 20, baseLevels: 1, color: 'bg-green-600', cols: createCols(1, 1) }
 ];
 
-const COLORS = ['bg-orange-400', 'bg-red-500', 'bg-red-600', 'bg-yellow-400', 'bg-green-500', 'bg-sky-300', 'bg-blue-600', 'bg-purple-500', 'bg-pink-400', 'bg-slate-800', 'bg-slate-400'];
+const COLORS = ['bg-orange-500', 'bg-red-500', 'bg-red-600', 'bg-yellow-500', 'bg-green-600', 'bg-sky-500', 'bg-blue-600', 'bg-purple-600', 'bg-pink-500', 'bg-stone-700', 'bg-stone-500'];
 
 // Fallback das zonas de roteamento (para a linha do chão)
 const ZONES = {
@@ -171,7 +171,6 @@ export default function WMS() {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        // Verifica se é o formato antigo (Array de móveis direto)
         if (Array.isArray(parsed) && parsed.length > 0 && !('layout' in parsed[0])) {
           const migratedLayout = parsed.map((el: any) => ({
             ...el,
@@ -180,7 +179,6 @@ export default function WMS() {
           }));
           return [{ id: 'almox-1', nome: 'Almoxarifado Principal', layout: migratedLayout }];
         }
-        // Se já for o formato novo
         return parsed;
       } catch(e) {
         return [{ id: 'almox-1', nome: 'Almoxarifado Principal', layout: DEFAULT_LAYOUT }];
@@ -198,7 +196,6 @@ export default function WMS() {
   const [selectedEl, setSelectedEl] = useState<string | null>(null);
   const [dragging, setDragging] = useState<{id: string, startX: number, startY: number, origX: number, origY: number} | null>(null);
 
-  // Função centralizada para atualizar APENAS o layout do almoxarifado ativo
   const updateActiveLayout = (newLayoutOrUpdater: MapElement[] | ((prev: MapElement[]) => MapElement[])) => {
     setAlmoxarifados(prev => prev.map(a => {
       if (a.id === activeAlmoxId) {
@@ -212,8 +209,6 @@ export default function WMS() {
   // ============================================================================
   // Integração SaaS (Carregamento e Salvamento via Supabase)
   // ============================================================================
-  
-  // 1. CARREGAR do Supabase ao abrir a tela
   useEffect(() => {
     async function loadLayoutFromDB() {
       const { data: { session } } = await supabase.auth.getSession();
@@ -228,7 +223,6 @@ export default function WMS() {
       if (data?.wms_layout && Array.isArray(data.wms_layout)) {
         try {
           const parsed = data.wms_layout;
-          // Migrador de Nuvem
           if (parsed.length > 0 && !('layout' in parsed[0])) {
             const migratedLayout = parsed.map((el: any) => ({
               ...el, baseLevels: el.baseLevels || el.levels || 1, cols: el.cols || createCols(el.columns || 1, el.levels || 1, el.levelAddresses || [])
@@ -243,7 +237,6 @@ export default function WMS() {
     loadLayoutFromDB();
   }, []);
 
-  // 2. SALVAR no localStorage (Imediato) e no Supabase (Debounced)
   useEffect(() => {
     localStorage.setItem("wms_picking_list", JSON.stringify(pickingList));
     localStorage.setItem("wms_checked_items", JSON.stringify(checkedItems));
@@ -263,7 +256,6 @@ export default function WMS() {
   }, [pickingList, checkedItems, almoxarifados]);
 
 
-  // Controles da Câmera
   const handleCamMouseDown = (e: React.MouseEvent) => { setIsCamDragging(true); setCamStart({ x: e.clientX, y: e.clientY }); };
   const handleCamMouseMove = (e: React.MouseEvent) => {
     if (!isCamDragging) return;
@@ -273,7 +265,6 @@ export default function WMS() {
   };
   const handleCamMouseUp = () => setIsCamDragging(false);
 
-  // Importação e Validação
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => { if (e.target.files && e.target.files.length > 0) setFile(e.target.files[0]); };
 
   const handleProcessFile = async () => {
@@ -313,7 +304,6 @@ export default function WMS() {
              let found = false;
              for (const items of Object.values(ZONES)) { if (items.some(prefix => loc.startsWith(prefix))) { found = true; break; } }
              
-             // Safely Verifica na Matriz do Almoxarifado Ativo!
              for (const el of elements) {
                 if(!el.cols) continue; 
                 for (const col of el.cols) {
@@ -352,9 +342,6 @@ export default function WMS() {
   const handleToggleCheck = (idx: number, e: React.MouseEvent) => { e.stopPropagation(); setCheckedItems(prev => prev.includes(idx) ? prev.filter(i => i !== idx) : [...prev, idx]); };
   const handleMapClick = () => { if (activePin !== null) setActivePin(null); };
 
-  // ============================================================================
-  // FUNÇÕES DO GERENCIADOR DE ALMOXARIFADOS
-  // ============================================================================
   const handleCriarAlmoxarifado = () => {
     const newId = `almox-${Date.now()}`;
     const novo: Almoxarifado = { id: newId, nome: `Novo Galpão ${almoxarifados.length + 1}`, layout: [] };
@@ -381,9 +368,6 @@ export default function WMS() {
   };
 
 
-  // ============================================================================
-  // FUNÇÕES DO CONSTRUTOR (DRAG & DROP E EDIÇÃO DE COLUNAS)
-  // ============================================================================
   const handleCanvasMouseMove = (e: React.MouseEvent) => {
     if (!dragging) return;
     const dx = e.clientX - dragging.startX; const dy = e.clientY - dragging.startY;
@@ -394,7 +378,7 @@ export default function WMS() {
   const handleCanvasMouseUp = () => setDragging(null);
   
   const addNewElement = () => {
-    const newEl: MapElement = { id: Date.now().toString(), name: 'NOVA GÔNDOLA', x: 350, y: 250, w: 100, h: 60, baseLevels: 4, color: 'bg-slate-400', cols: createCols(2, 4) };
+    const newEl: MapElement = { id: Date.now().toString(), name: 'NOVA GÔNDOLA', x: 350, y: 250, w: 100, h: 60, baseLevels: 4, color: 'bg-stone-500', cols: createCols(2, 4) };
     updateActiveLayout([...elements, newEl]); setSelectedEl(newEl.id);
   };
   
@@ -443,9 +427,6 @@ export default function WMS() {
     }));
   };
 
-  // ============================================================================
-  // CÁLCULO DE POSIÇÃO 3D POR COLUNA E ANDAR ESPECÍFICO
-  // ============================================================================
   const fullOrthogonalPath: {x: number, y: number}[] = [{ x: 340, y: 580 }]; 
   
   const visualPins = pickingList.map((item) => {
@@ -514,16 +495,16 @@ export default function WMS() {
 
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-6 text-stone-200">
       
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <PageHeader title="Roteirização WMS" description="Mapeamento Fino por Coluna e Andar com suporte a múltiplos Galpões." />
         <div className="flex gap-2">
-          <div className="bg-slate-200 p-1 rounded-lg flex shadow-inner">
-            <button className={cn("px-4 py-1.5 rounded-md text-sm font-bold transition-all flex items-center gap-2", activeTab === 'operation' ? "bg-white text-blue-600 shadow" : "text-slate-500 hover:text-slate-700")} onClick={() => setActiveTab('operation')}><Maximize className="w-4 h-4"/> Operação 3D</button>
-            <button className={cn("px-4 py-1.5 rounded-md text-sm font-bold transition-all flex items-center gap-2", activeTab === 'builder' ? "bg-white text-blue-600 shadow" : "text-slate-500 hover:text-slate-700")} onClick={() => setActiveTab('builder')}><Edit3 className="w-4 h-4"/> Construtor 2D</button>
+          <div className="bg-stone-900 border border-stone-800 p-1 rounded-lg flex shadow-inner">
+            <button className={cn("px-4 py-1.5 rounded-md text-sm font-bold transition-all flex items-center gap-2", activeTab === 'operation' ? "bg-stone-800 text-red-500 shadow" : "text-stone-500 hover:text-stone-300")} onClick={() => setActiveTab('operation')}><Maximize className="w-4 h-4"/> Operação 3D</button>
+            <button className={cn("px-4 py-1.5 rounded-md text-sm font-bold transition-all flex items-center gap-2", activeTab === 'builder' ? "bg-stone-800 text-red-500 shadow" : "text-stone-500 hover:text-stone-300")} onClick={() => setActiveTab('builder')}><Edit3 className="w-4 h-4"/> Construtor 2D</button>
           </div>
-          {activeTab === 'operation' && pickingList.length > 0 && <Button variant="outline" onClick={resetList}><RefreshCw className="w-4 h-4 mr-2" /> Novo Lote</Button>}
+          {activeTab === 'operation' && pickingList.length > 0 && <Button variant="outline" className="bg-stone-900 border-stone-800 text-stone-200 hover:bg-stone-800" onClick={resetList}><RefreshCw className="w-4 h-4 mr-2" /> Novo Lote</Button>}
         </div>
       </div>
 
@@ -532,97 +513,97 @@ export default function WMS() {
       {/* ============================================================================ */}
       {activeTab === 'builder' && (
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <Card className="shadow-card lg:col-span-1 h-fit">
-            <CardHeader className="border-b bg-slate-50 pb-4">
-              <CardTitle className="text-lg flex items-center gap-2"><Edit3 className="w-5 h-5 text-blue-600"/> Propriedades</CardTitle>
-              <CardDescription>Crie o mapa e configure cada estrutura.</CardDescription>
+          <Card className="shadow-sm border-stone-800 bg-stone-900 lg:col-span-1 h-fit">
+            <CardHeader className="border-b border-stone-800 bg-stone-950/50 pb-4">
+              <CardTitle className="text-lg flex items-center gap-2 text-red-500"><Edit3 className="w-5 h-5"/> Propriedades</CardTitle>
+              <CardDescription className="text-stone-400">Crie o mapa e configure cada estrutura.</CardDescription>
             </CardHeader>
             <CardContent className="p-4 space-y-6 max-h-[750px] overflow-y-auto custom-scrollbar">
               
               {/* PAINEL DE MULTI-ALMOXARIFADO */}
-              <div className="space-y-3 bg-blue-50/50 p-4 border border-blue-100 rounded-lg">
-                <label className="text-xs font-bold text-blue-800 flex items-center gap-1"><Building2 className="w-4 h-4"/> ALMOXARIFADO ATUAL</label>
+              <div className="space-y-3 bg-red-950/10 p-4 border border-red-900/30 rounded-lg">
+                <label className="text-xs font-bold text-red-400 flex items-center gap-1"><Building2 className="w-4 h-4"/> ALMOXARIFADO ATUAL</label>
                 <div className="flex gap-2">
                   <select 
                     value={activeAlmoxId} 
                     onChange={(e) => { setActiveAlmoxId(e.target.value); setSelectedEl(null); }}
-                    className="flex h-9 w-full rounded-md border border-slate-300 bg-white px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="flex h-9 w-full rounded-md border border-stone-800 bg-stone-950 px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-red-500 text-stone-200"
                   >
                     {almoxarifados.map(a => <option key={a.id} value={a.id}>{a.nome}</option>)}
                   </select>
-                  <Button size="icon" variant="outline" onClick={handleCriarAlmoxarifado} className="h-9 w-9 shrink-0 bg-white" title="Criar Novo Almoxarifado"><Plus className="w-4 h-4"/></Button>
+                  <Button size="icon" variant="outline" onClick={handleCriarAlmoxarifado} className="h-9 w-9 shrink-0 bg-stone-800 border-stone-700 text-stone-200 hover:bg-stone-700 hover:text-white" title="Criar Novo Almoxarifado"><Plus className="w-4 h-4"/></Button>
                 </div>
                 <div className="flex gap-2 items-center pt-2">
-                   <Input value={activeAlmox.nome} onChange={(e) => handleRenomearAlmoxarifado(e.target.value)} className="h-8 text-xs bg-white" placeholder="Nome do Galpão" />
-                   <Button size="icon" variant="ghost" className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50" onClick={handleExcluirAlmoxarifado} title="Excluir Almoxarifado"><Trash2 className="w-4 h-4"/></Button>
+                   <Input value={activeAlmox.nome} onChange={(e) => handleRenomearAlmoxarifado(e.target.value)} className="h-8 text-xs bg-stone-950 border-stone-800 text-stone-200" placeholder="Nome do Galpão" />
+                   <Button size="icon" variant="ghost" className="h-8 w-8 text-red-500 hover:text-red-400 hover:bg-red-950/40" onClick={handleExcluirAlmoxarifado} title="Excluir Almoxarifado"><Trash2 className="w-4 h-4"/></Button>
                 </div>
               </div>
 
-              <Button onClick={addNewElement} className="w-full bg-blue-600 hover:bg-blue-700"><Plus className="w-4 h-4 mr-2"/> Nova Estrutura neste Galpão</Button>
+              <Button onClick={addNewElement} className="w-full bg-red-600 hover:bg-red-700 text-white border-none"><Plus className="w-4 h-4 mr-2"/> Nova Estrutura neste Galpão</Button>
               
               {selectedEl ? (() => {
                 const el = elements.find(e=>e.id===selectedEl)!;
                 return (
-                <div className="space-y-4 p-4 bg-slate-50 border rounded-lg">
+                <div className="space-y-4 p-4 bg-stone-950 border border-stone-800 rounded-lg">
                   <div className="flex justify-between items-center mb-2">
-                    <h3 className="font-bold text-slate-700">Editar Móvel</h3>
-                    <button onClick={() => deleteElement(selectedEl)} className="text-red-500 hover:text-red-700 p-1"><Trash2 className="w-4 h-4"/></button>
+                    <h3 className="font-bold text-stone-200">Editar Móvel</h3>
+                    <button onClick={() => deleteElement(selectedEl)} className="text-red-500 hover:text-red-400 p-1"><Trash2 className="w-4 h-4"/></button>
                   </div>
                   
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-500">NOME</label>
-                    <Input value={el.name} onChange={(e) => updateSelected('name', e.target.value)} />
+                    <label className="text-xs font-bold text-stone-500">NOME</label>
+                    <Input value={el.name} onChange={(e) => updateSelected('name', e.target.value)} className="bg-stone-900 border-stone-800 text-stone-200" />
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1"><label className="text-[10px] font-bold text-slate-500">POS. X</label><Input type="number" value={el.x} onChange={(e) => updateSelected('x', parseInt(e.target.value))} /></div>
-                    <div className="space-y-1"><label className="text-[10px] font-bold text-slate-500">POS. Y</label><Input type="number" value={el.y} onChange={(e) => updateSelected('y', parseInt(e.target.value))} /></div>
-                    <div className="space-y-1"><label className="text-[10px] font-bold text-slate-500">LARGURA</label><Input type="number" value={el.w} onChange={(e) => updateSelected('w', parseInt(e.target.value))} /></div>
-                    <div className="space-y-1"><label className="text-[10px] font-bold text-slate-500">ALTURA</label><Input type="number" value={el.h} onChange={(e) => updateSelected('h', parseInt(e.target.value))} /></div>
+                    <div className="space-y-1"><label className="text-[10px] font-bold text-stone-500">POS. X</label><Input type="number" value={el.x} onChange={(e) => updateSelected('x', parseInt(e.target.value))} className="bg-stone-900 border-stone-800 text-stone-200"/></div>
+                    <div className="space-y-1"><label className="text-[10px] font-bold text-stone-500">POS. Y</label><Input type="number" value={el.y} onChange={(e) => updateSelected('y', parseInt(e.target.value))} className="bg-stone-900 border-stone-800 text-stone-200"/></div>
+                    <div className="space-y-1"><label className="text-[10px] font-bold text-stone-500">LARGURA</label><Input type="number" value={el.w} onChange={(e) => updateSelected('w', parseInt(e.target.value))} className="bg-stone-900 border-stone-800 text-stone-200"/></div>
+                    <div className="space-y-1"><label className="text-[10px] font-bold text-stone-500">ALTURA</label><Input type="number" value={el.h} onChange={(e) => updateSelected('h', parseInt(e.target.value))} className="bg-stone-900 border-stone-800 text-stone-200"/></div>
                   </div>
 
-                  <div className="space-y-2 pt-2 border-t border-slate-200 mt-2">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase">Cor da Estrutura</label>
+                  <div className="space-y-2 pt-2 border-t border-stone-800 mt-2">
+                    <label className="text-[10px] font-bold text-stone-500 uppercase">Cor da Estrutura</label>
                     <div className="flex flex-wrap gap-2">
                       {COLORS.map(c => (
-                        <button key={c} onClick={() => updateSelected('color', c)} className={cn("w-6 h-6 rounded-full border-2", c, el.color === c ? "border-black scale-110" : "border-transparent hover:scale-110 transition-transform")} />
+                        <button key={c} onClick={() => updateSelected('color', c)} className={cn("w-6 h-6 rounded-full border-2", c, el.color === c ? "border-white scale-110 shadow-lg" : "border-transparent hover:scale-110 transition-transform")} />
                       ))}
                     </div>
                   </div>
 
                   {/* CONFIGURAÇÃO AVANÇADA (ALTURA BASE + COLUNAS) */}
-                  <div className="space-y-4 border-t border-slate-200 pt-4 mt-4">
+                  <div className="space-y-4 border-t border-stone-800 pt-4 mt-4">
                     <div className="grid grid-cols-2 gap-2">
                       <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-blue-600" title="Altura máxima do móvel de aço em 'Andares Padrão'">ALTURA GERAL</label>
-                        <Input type="number" min={1} max={10} value={el.baseLevels || 1} onChange={(e) => updateSelected('baseLevels', parseInt(e.target.value))} className="border-blue-300 bg-blue-50 h-8 text-center"/>
+                        <label className="text-[10px] font-bold text-red-500" title="Altura máxima do móvel de aço em 'Andares Padrão'">ALTURA GERAL</label>
+                        <Input type="number" min={1} max={10} value={el.baseLevels || 1} onChange={(e) => updateSelected('baseLevels', parseInt(e.target.value))} className="border-stone-800 bg-stone-900 text-stone-200 h-8 text-center"/>
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-blue-600">QTD COLUNAS</label>
-                        <Input type="number" min={1} max={20} value={el.cols?.length || 1} onChange={(e) => updateColumnsAmount(parseInt(e.target.value))} className="border-blue-300 bg-blue-50 h-8 text-center"/>
+                        <label className="text-[10px] font-bold text-red-500">QTD COLUNAS</label>
+                        <Input type="number" min={1} max={20} value={el.cols?.length || 1} onChange={(e) => updateColumnsAmount(parseInt(e.target.value))} className="border-stone-800 bg-stone-900 text-stone-200 h-8 text-center"/>
                       </div>
                     </div>
 
-                    <label className="text-xs font-bold text-blue-600 flex items-center gap-1 mt-4"><Layers className="w-4 h-4"/> MAPEAMENTO POR COLUNA</label>
-                    <p className="text-[10px] text-slate-400 leading-tight">Defina quantos andares cada coluna tem, e o que fica em cada andar.</p>
+                    <label className="text-xs font-bold text-red-500 flex items-center gap-1 mt-4"><Layers className="w-4 h-4"/> MAPEAMENTO POR COLUNA</label>
+                    <p className="text-[10px] text-stone-500 leading-tight">Defina quantos andares cada coluna tem, e o que fica em cada andar.</p>
                     
                     {/* SCROLL LATERAL PARA AS COLUNAS */}
                     <div className="flex gap-4 overflow-x-auto pb-4 snap-x custom-scrollbar">
                       {(el.cols || []).map((col, cIdx) => (
-                        <div key={cIdx} className="min-w-[180px] bg-white border border-slate-200 rounded-lg p-3 shadow-sm snap-start shrink-0">
-                          <div className="flex justify-between items-center mb-3 pb-2 border-b">
-                            <span className="text-xs font-bold text-slate-700">Coluna {cIdx + 1}</span>
+                        <div key={cIdx} className="min-w-[180px] bg-stone-900 border border-stone-800 rounded-lg p-3 shadow-sm snap-start shrink-0">
+                          <div className="flex justify-between items-center mb-3 pb-2 border-b border-stone-800">
+                            <span className="text-xs font-bold text-stone-300">Coluna {cIdx + 1}</span>
                             <div className="flex items-center gap-1">
-                               <span className="text-[9px] text-slate-400">Andares:</span>
-                               <Input type="number" min={1} max={15} value={col.levels} onChange={(e) => updateColLevels(cIdx, parseInt(e.target.value))} className="w-12 h-6 text-[10px] px-1 text-center font-bold bg-slate-100" />
+                               <span className="text-[9px] text-stone-500">Andares:</span>
+                               <Input type="number" min={1} max={15} value={col.levels} onChange={(e) => updateColLevels(cIdx, parseInt(e.target.value))} className="w-12 h-6 text-[10px] px-1 text-center font-bold bg-stone-950 border-stone-700 text-stone-200" />
                             </div>
                           </div>
                           
                           <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1 custom-scrollbar">
                             {Array.from({ length: col.levels }).map((_, lIdx) => (
                               <div key={lIdx} className="flex items-center gap-1.5">
-                                <span className="text-[9px] font-bold text-slate-400 w-6">N{lIdx + 1}</span>
-                                <Input placeholder="Prefixos..." className="h-6 text-[9px] font-mono px-1.5 bg-slate-50" value={col.addresses[lIdx] || ''} onChange={(e) => updateColAddress(cIdx, lIdx, e.target.value)} />
+                                <span className="text-[9px] font-bold text-stone-500 w-6">N{lIdx + 1}</span>
+                                <Input placeholder="Prefixos..." className="h-6 text-[9px] font-mono px-1.5 bg-stone-950 border-stone-800 text-stone-300" value={col.addresses[lIdx] || ''} onChange={(e) => updateColAddress(cIdx, lIdx, e.target.value)} />
                               </div>
                             ))}
                           </div>
@@ -633,31 +614,32 @@ export default function WMS() {
                 </div>
                 );
               })() : (
-                <div className="p-6 border-2 border-dashed border-slate-200 rounded-lg text-center text-slate-400 text-sm">Clique em um item no mapa para editar ou mapear andares.</div>
+                <div className="p-6 border-2 border-dashed border-stone-800 rounded-lg text-center text-stone-500 text-sm">Clique em um item no mapa para editar ou mapear andares.</div>
               )}
             </CardContent>
           </Card>
 
-          <Card className="shadow-card lg:col-span-3 overflow-hidden bg-slate-100 flex justify-center items-center py-8">
+          <Card className="shadow-sm border-stone-800 lg:col-span-3 overflow-hidden bg-stone-950 flex justify-center items-center py-8">
             <div 
-              className="relative w-[800px] h-[600px] bg-white shadow-xl border-2 border-slate-300"
+              className="relative w-[800px] h-[600px] bg-stone-900 shadow-xl border-2 border-stone-700"
               onMouseMove={handleCanvasMouseMove} onMouseUp={handleCanvasMouseUp} onMouseLeave={handleCanvasMouseUp}
             >
-              <div className="absolute inset-0 bg-[linear-gradient(#e2e8f0_1px,transparent_1px),linear-gradient(90deg,#e2e8f0_1px,transparent_1px)] bg-[size:10px_10px] opacity-60 pointer-events-none"></div>
+              {/* Grid Dark Mode */}
+              <div className="absolute inset-0 bg-[linear-gradient(#292524_1px,transparent_1px),linear-gradient(90deg,#292524_1px,transparent_1px)] bg-[size:10px_10px] opacity-80 pointer-events-none"></div>
               {elements.map(el => (
                 <div
                   key={el.id}
                   onMouseDown={(e) => { e.stopPropagation(); setSelectedEl(el.id); setDragging({ id: el.id, startX: e.clientX, startY: e.clientY, origX: el.x, origY: el.y }); }}
-                  className={cn("absolute shadow-md flex flex-col cursor-move transition-shadow", el.color, selectedEl === el.id ? "ring-2 ring-offset-2 ring-blue-500 z-50 brightness-110 shadow-xl" : "hover:brightness-110 z-10")}
+                  className={cn("absolute shadow-md flex flex-col cursor-move transition-shadow", el.color, selectedEl === el.id ? "ring-2 ring-offset-2 ring-offset-stone-900 ring-red-500 z-50 brightness-110 shadow-2xl" : "hover:brightness-110 z-10")}
                   style={{ left: el.x, top: el.y, width: el.w, height: el.h }}
                 >
-                  <div className="absolute inset-0 border-b-4 border-black/20 pointer-events-none"></div>
+                  <div className="absolute inset-0 border-b-4 border-black/30 pointer-events-none"></div>
                   
                   {/* Desenho 2D das Divisórias (Colunas) */}
                   <div className={cn("absolute inset-0 flex pointer-events-none", el.w > el.h ? "flex-row" : "flex-col")}>
                      {Array.from({ length: el.cols?.length || 1 }).map((_, c) => (
-                        <div key={c} className={cn("flex-1 border-black/20 flex items-center justify-center overflow-hidden", el.w > el.h ? "border-r last:border-r-0" : "border-b last:border-b-0")}>
-                           <span className="text-[7px] text-white/40 font-bold mix-blend-overlay">{c+1}</span>
+                        <div key={c} className={cn("flex-1 border-black/30 flex items-center justify-center overflow-hidden", el.w > el.h ? "border-r last:border-r-0" : "border-b last:border-b-0")}>
+                           <span className="text-[7px] text-white/50 font-bold mix-blend-overlay">{c+1}</span>
                         </div>
                      ))}
                   </div>
@@ -677,56 +659,56 @@ export default function WMS() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
           
           {pickingList.length === 0 && (
-            <Card className="shadow-card lg:col-span-1 h-fit border-blue-200">
-              <CardHeader className="bg-blue-50/50 border-b pb-4">
-                <CardTitle className="text-lg font-heading flex items-center gap-2 text-blue-800"><UploadCloud className="w-5 h-5" />Importar Relatório</CardTitle>
-                <CardDescription>Configure a separação e faça o upload da lista.</CardDescription>
+            <Card className="shadow-sm lg:col-span-1 h-fit border-stone-800 bg-stone-900">
+              <CardHeader className="bg-stone-950/50 border-b border-stone-800 pb-4">
+                <CardTitle className="text-lg font-heading flex items-center gap-2 text-red-500"><UploadCloud className="w-5 h-5" />Importar Relatório</CardTitle>
+                <CardDescription className="text-stone-400">Configure a separação e faça o upload da lista.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6 pt-6">
                 
                 {/* ESCOLHA DO ALMOXARIFADO NA OPERAÇÃO */}
                 <div className="space-y-2">
-                  <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                    <span className="bg-blue-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-xs">1</span>
+                  <label className="text-sm font-bold text-stone-300 flex items-center gap-2">
+                    <span className="bg-red-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-xs">1</span>
                     Selecione o Galpão:
                   </label>
                   <select 
                     value={activeAlmoxId} 
                     onChange={(e) => setActiveAlmoxId(e.target.value)}
-                    className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="flex h-10 w-full rounded-md border border-stone-800 bg-stone-950 px-3 py-2 text-sm text-stone-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500"
                   >
                     {almoxarifados.map(a => <option key={a.id} value={a.id}>{a.nome}</option>)}
                   </select>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                    <span className="bg-blue-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-xs">2</span>
+                  <label className="text-sm font-bold text-stone-300 flex items-center gap-2">
+                    <span className="bg-red-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-xs">2</span>
                     Arquivo HTML:
                   </label>
-                  <div className="border-2 border-dashed border-blue-200 rounded-lg p-6 text-center hover:bg-blue-50 transition-colors bg-slate-50">
-                    <Input type="file" accept=".htm, .html" onChange={handleFileChange} className="cursor-pointer" />
+                  <div className="border-2 border-dashed border-stone-700 rounded-lg p-6 text-center hover:bg-stone-800 transition-colors bg-stone-950">
+                    <Input type="file" accept=".htm, .html" onChange={handleFileChange} className="cursor-pointer bg-transparent text-stone-300 border-none file:text-stone-300 file:bg-stone-800 file:rounded-md file:border-none file:px-3 file:py-1 file:mr-3" />
                   </div>
                 </div>
 
-                <Button className="w-full h-12 text-md shadow-lg bg-blue-600 hover:bg-blue-700" onClick={handleProcessFile} disabled={!file || isProcessing}>
+                <Button className="w-full h-12 text-md shadow-lg bg-red-600 hover:bg-red-700 text-white border-none" onClick={handleProcessFile} disabled={!file || isProcessing}>
                   {isProcessing ? "Lendo dados..." : "Processar Separação"}
                 </Button>
               </CardContent>
             </Card>
           )}
 
-          <Card className={`shadow-card ${pickingList.length > 0 ? 'lg:col-span-3' : 'lg:col-span-2'} overflow-hidden bg-slate-50`}>
-            <CardHeader className="bg-white border-b flex flex-row items-center justify-between">
+          <Card className={`shadow-sm border-stone-800 ${pickingList.length > 0 ? 'lg:col-span-3' : 'lg:col-span-2'} overflow-hidden bg-stone-900`}>
+            <CardHeader className="bg-stone-950/50 border-b border-stone-800 flex flex-row items-center justify-between">
               <div>
-                <CardTitle className="text-lg font-heading flex items-center gap-2">
-                  <RouteIcon className="w-5 h-5 text-blue-600" /> Galpão: {activeAlmox.nome}
+                <CardTitle className="text-lg font-heading flex items-center gap-2 text-red-500">
+                  <RouteIcon className="w-5 h-5" /> Galpão: {activeAlmox.nome}
                 </CardTitle>
-                <CardDescription><strong>Arraste o fundo</strong> para girar a câmera. As bolinhas voam exatamente para o compartimento mapeado!</CardDescription>
+                <CardDescription className="text-stone-400"><strong>Arraste o fundo</strong> para girar a câmera. As bolinhas voam exatamente para o compartimento mapeado!</CardDescription>
               </div>
-              <Button variant="outline" size="sm" onClick={() => setCamRot({x:55, z:-35})}>Recentralizar Câmera</Button>
+              <Button variant="outline" size="sm" onClick={() => setCamRot({x:55, z:-35})} className="bg-stone-800 border-stone-700 text-stone-200 hover:bg-stone-700">Recentralizar Câmera</Button>
             </CardHeader>
-            <CardContent className="p-0 bg-slate-100 flex justify-center items-center h-[650px] overflow-hidden relative perspective-[1200px]" >
+            <CardContent className="p-0 bg-stone-950 flex justify-center items-center h-[650px] overflow-hidden relative perspective-[1200px]" >
               
               {pickingList.length > 0 ? (
                 // CÂMERA 3D (ORBIT)
@@ -735,7 +717,7 @@ export default function WMS() {
                   onMouseDown={handleCamMouseDown} onMouseMove={handleCamMouseMove} onMouseUp={handleCamMouseUp} onMouseLeave={handleCamMouseUp}
                   style={{ transform: `rotateX(${camRot.x}deg) rotateZ(${camRot.z}deg) scale(0.85)` }}
                 >
-                  <div className="absolute inset-0 bg-[linear-gradient(#cbd5e1_2px,transparent_2px),linear-gradient(90deg,#cbd5e1_2px,transparent_2px)] bg-[size:40px_40px] opacity-80 pointer-events-none"></div>
+                  <div className="absolute inset-0 bg-[linear-gradient(#292524_2px,transparent_2px),linear-gradient(90deg,#292524_2px,transparent_2px)] bg-[size:40px_40px] opacity-80 pointer-events-none"></div>
 
                   {/* ========================================================= */}
                   {/* RENDERIZA GÔNDOLAS 3D FATIADAS POR COLUNAS E SEUS ANDARES */}
@@ -748,7 +730,7 @@ export default function WMS() {
                     return (
                     <div key={el.id} className="absolute [transform-style:preserve-3d] pointer-events-none" style={{ left: el.x, top: el.y, width: el.w, height: el.h }}>
                       
-                      <div className="absolute inset-0 bg-black/30 blur-sm"></div>
+                      <div className="absolute inset-0 bg-black/50 blur-sm"></div>
 
                       {/* Renderiza as Colunas da Gôndola */}
                       {(el.cols || []).map((colData, cIdx) => {
@@ -765,9 +747,9 @@ export default function WMS() {
                               {/* Renderiza os Andares desta Coluna específica */}
                               {Array.from({ length: colData.levels }).map((_, lIdx) => (
                                  <div key={`lvl-${lIdx}`} className="absolute inset-0 [transform-style:preserve-3d]" style={{ transform: `translateZ(${(lIdx + 1) * levelHeight}px)` }}>
-                                    <div className={cn("absolute inset-0 opacity-90 border border-black/40 shadow-sm", el.color)}></div>
-                                    <div className="absolute top-full left-0 w-full h-[6px] bg-black/40 origin-top" style={{ transform: 'rotateX(-90deg)' }}></div>
-                                    <div className="absolute top-0 left-full w-[6px] h-full bg-black/50 origin-left" style={{ transform: 'rotateY(90deg)' }}></div>
+                                    <div className={cn("absolute inset-0 opacity-90 border border-black/50 shadow-sm", el.color)}></div>
+                                    <div className="absolute top-full left-0 w-full h-[6px] bg-black/60 origin-top" style={{ transform: 'rotateX(-90deg)' }}></div>
+                                    <div className="absolute top-0 left-full w-[6px] h-full bg-black/70 origin-left" style={{ transform: 'rotateY(90deg)' }}></div>
                                  </div>
                               ))}
                            </div>
@@ -775,14 +757,14 @@ export default function WMS() {
                       })}
 
                       {/* Pilares de Sustentação */}
-                      <div className="absolute top-0 left-0 w-[4px] bg-slate-800 origin-top shadow-lg" style={{ height: totalStructuralHeight, transform: 'rotateX(-90deg)' }}></div>
-                      <div className="absolute top-full left-0 w-[4px] bg-slate-800 origin-top shadow-lg" style={{ height: totalStructuralHeight, transform: 'rotateX(-90deg)' }}></div>
-                      <div className="absolute top-0 right-0 w-[4px] bg-slate-800 origin-top shadow-lg" style={{ height: totalStructuralHeight, transform: 'rotateX(-90deg)' }}></div>
-                      <div className="absolute top-full right-0 w-[4px] bg-slate-800 origin-top shadow-lg" style={{ height: totalStructuralHeight, transform: 'rotateX(-90deg)' }}></div>
+                      <div className="absolute top-0 left-0 w-[4px] bg-stone-900 origin-top shadow-lg" style={{ height: totalStructuralHeight, transform: 'rotateX(-90deg)' }}></div>
+                      <div className="absolute top-full left-0 w-[4px] bg-stone-900 origin-top shadow-lg" style={{ height: totalStructuralHeight, transform: 'rotateX(-90deg)' }}></div>
+                      <div className="absolute top-0 right-0 w-[4px] bg-stone-900 origin-top shadow-lg" style={{ height: totalStructuralHeight, transform: 'rotateX(-90deg)' }}></div>
+                      <div className="absolute top-full right-0 w-[4px] bg-stone-900 origin-top shadow-lg" style={{ height: totalStructuralHeight, transform: 'rotateX(-90deg)' }}></div>
 
                       {/* Teto Invisível com o Nome */}
                       <div className="absolute inset-0 flex items-center justify-center" style={{ transform: `translateZ(${totalStructuralHeight + 20}px)` }}>
-                        <span className="font-black text-slate-800 tracking-widest whitespace-nowrap text-[10px] bg-white/70 px-1.5 py-0.5 border border-white/50 rounded-sm shadow-sm backdrop-blur-sm" style={{ transform: `rotateZ(${-camRot.z}deg) rotateX(${-camRot.x}deg)` }}>
+                        <span className="font-black text-stone-200 tracking-widest whitespace-nowrap text-[10px] bg-black/70 px-1.5 py-0.5 border border-stone-600/50 rounded-sm shadow-sm backdrop-blur-sm" style={{ transform: `rotateZ(${-camRot.z}deg) rotateX(${-camRot.x}deg)` }}>
                           {el.name}
                         </span>
                       </div>
@@ -791,8 +773,8 @@ export default function WMS() {
 
                   {/* LINHA ANIMADA DO CAMINHO NO CHÃO */}
                   <svg viewBox="0 0 800 600" className="absolute inset-0 w-full h-full overflow-visible [transform:translateZ(2px)] pointer-events-none">
-                    <polyline points={fullOrthogonalPath.map(p => `${p.x},${p.y}`).join(' ')} fill="none" stroke="#2563eb" strokeWidth="4" strokeLinejoin="round" strokeDasharray="10,10" className="animate-[dash_20s_linear_infinite]" />
-                    <polygon points="95,575 105,575 100,585" fill="#2563eb" className="animate-[dash_20s_linear_infinite]" />
+                    <polyline points={fullOrthogonalPath.map(p => `${p.x},${p.y}`).join(' ')} fill="none" stroke="#ef4444" strokeWidth="4" strokeLinejoin="round" strokeDasharray="10,10" className="animate-[dash_20s_linear_infinite]" />
+                    <polygon points="95,575 105,575 100,585" fill="#ef4444" className="animate-[dash_20s_linear_infinite]" />
                   </svg>
 
                   {/* BOLINHAS NO AR (Nas prateleiras corretas!) */}
@@ -812,35 +794,35 @@ export default function WMS() {
                         onMouseDown={(e) => e.stopPropagation()} 
                         onClick={(e) => { e.stopPropagation(); setActivePin(isActive ? null : idx); }}
                       >
-                        <div className={cn("w-6 h-6 border-2 border-white rounded-full shadow-2xl flex items-center justify-center text-white text-[10px] font-bold cursor-pointer transition-colors",
-                          isChecked ? "bg-green-500 hover:bg-green-600" : "bg-slate-800 hover:bg-blue-600",
-                          isActive && !isChecked && "ring-4 ring-blue-400/80", isActive && isChecked && "ring-4 ring-green-400/80"
+                        <div className={cn("w-6 h-6 border-2 border-stone-200/50 rounded-full shadow-2xl flex items-center justify-center text-white text-[10px] font-bold cursor-pointer transition-colors",
+                          isChecked ? "bg-green-600 hover:bg-green-500" : "bg-stone-800 hover:bg-red-600",
+                          isActive && !isChecked && "ring-4 ring-red-500/80", isActive && isChecked && "ring-4 ring-green-500/80"
                         )}>
                           {isChecked ? <Check className="w-3.5 h-3.5" strokeWidth={3} /> : (idx + 1)}
                         </div>
 
                         {/* Modal Aberto */}
                         {isActive && (
-                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-56 bg-slate-900 text-white rounded-lg shadow-2xl origin-bottom animate-in fade-in zoom-in duration-200 cursor-default">
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-56 bg-stone-900 border border-stone-700 text-stone-200 rounded-lg shadow-2xl origin-bottom animate-in fade-in zoom-in duration-200 cursor-default">
                             <div className="p-3.5 text-[11px] leading-relaxed flex flex-col gap-2">
-                              <div className="flex justify-between items-center border-b border-slate-700 pb-2">
-                                <span className="font-bold text-blue-400 text-xs">TAREFA {idx + 1}</span>
-                                <button onClick={() => setActivePin(null)} className="text-slate-400 hover:text-white bg-slate-800 rounded-full p-1"><X className="w-3.5 h-3.5"/></button>
+                              <div className="flex justify-between items-center border-b border-stone-700 pb-2">
+                                <span className="font-bold text-red-500 text-xs">TAREFA {idx + 1}</span>
+                                <button onClick={() => setActivePin(null)} className="text-stone-400 hover:text-white bg-stone-800 rounded-full p-1"><X className="w-3.5 h-3.5"/></button>
                               </div>
                               <div>
-                                <Badge variant="outline" className="text-[10px] h-5 border-slate-600 bg-slate-800 text-slate-300 px-2 rounded-md mb-2"><MapPin className="w-3 h-3 mr-1" /> {item.local}</Badge>
-                                <p className="font-mono text-slate-400 mb-1">SKU: <span className="text-slate-200">{item.sku}</span></p>
-                                <p className="line-clamp-2" title={item.descricao}>{item.descricao}</p>
+                                <Badge variant="outline" className="text-[10px] h-5 border-stone-700 bg-stone-950 text-stone-300 px-2 rounded-md mb-2"><MapPin className="w-3 h-3 mr-1" /> {item.local}</Badge>
+                                <p className="font-mono text-stone-400 mb-1">SKU: <span className="text-stone-200">{item.sku}</span></p>
+                                <p className="line-clamp-2 text-stone-300" title={item.descricao}>{item.descricao}</p>
                               </div>
-                              <div className="mt-1 pt-2 border-t border-slate-700 flex justify-between items-center">
-                                <span className="text-slate-400 uppercase tracking-wider text-[9px] font-bold">A Coletar</span>
-                                <span className="font-black text-green-400 text-lg">{item.qtdeTotal} un</span>
+                              <div className="mt-1 pt-2 border-t border-stone-700 flex justify-between items-center">
+                                <span className="text-stone-400 uppercase tracking-wider text-[9px] font-bold">A Coletar</span>
+                                <span className="font-black text-green-500 text-lg">{item.qtdeTotal} un</span>
                               </div>
-                              <Button size="sm" className={cn("w-full mt-1 h-8 font-bold", isChecked ? "bg-slate-700 hover:bg-slate-600 text-white" : "bg-green-600 hover:bg-green-500")} onClick={(e) => { handleToggleCheck(idx, e); setActivePin(null); }}>
+                              <Button size="sm" className={cn("w-full mt-1 h-8 font-bold border-none", isChecked ? "bg-stone-700 hover:bg-stone-600 text-white" : "bg-green-600 hover:bg-green-500")} onClick={(e) => { handleToggleCheck(idx, e); setActivePin(null); }}>
                                 {isChecked ? "Desmarcar Tarefa" : "Confirmar Coleta"}
                               </Button>
                             </div>
-                            <div className="absolute top-full left-1/2 -translate-x-1/2 border-[6px] border-transparent border-t-slate-900"></div>
+                            <div className="absolute top-full left-1/2 -translate-x-1/2 border-[6px] border-transparent border-t-stone-700"></div>
                           </div>
                         )}
                       </div>
@@ -848,8 +830,8 @@ export default function WMS() {
                   })}
                 </div>
               ) : (
-                <div className="text-slate-400 text-center pointer-events-none" onClick={handleMapClick}>
-                  <Map className="w-16 h-16 mx-auto mb-4 opacity-20" />
+                <div className="text-stone-500 text-center pointer-events-none" onClick={handleMapClick}>
+                  <Map className="w-16 h-16 mx-auto mb-4 opacity-20 text-red-500" />
                   <p>Escolha o galpão e importe um lote para visualizar o trajeto.</p>
                 </div>
               )}
@@ -858,40 +840,40 @@ export default function WMS() {
 
           {/* TABELA DE ROTA GERADA */}
           {pickingList.length > 0 && (
-            <Card className="shadow-card lg:col-span-3">
-              <CardHeader>
-                <CardTitle className="text-lg font-heading flex items-center gap-2"><ListChecks className="w-5 h-5 text-green-600" />Lista de Coleta Sequencial</CardTitle>
+            <Card className="shadow-sm border-stone-800 bg-stone-900 lg:col-span-3">
+              <CardHeader className="border-b border-stone-800 bg-stone-950/50">
+                <CardTitle className="text-lg font-heading flex items-center gap-2 text-red-500"><ListChecks className="w-5 h-5 text-red-500" />Lista de Coleta Sequencial</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
-                <div className="border-t">
+                <div className="border-t border-stone-800">
                   <Table>
-                    <TableHeader className="bg-slate-50">
-                      <TableRow>
-                        <TableHead className="w-[80px] text-center">Status</TableHead>
-                        <TableHead className="w-[150px]">Local</TableHead>
-                        <TableHead className="w-[100px]">Código</TableHead>
-                        <TableHead className="w-[120px]">SKU</TableHead>
-                        <TableHead>Produto</TableHead>
-                        <TableHead>Atende Pedidos</TableHead>
-                        <TableHead className="text-right">Qtd. Coletar</TableHead>
+                    <TableHeader className="bg-stone-950">
+                      <TableRow className="border-stone-800 hover:bg-transparent">
+                        <TableHead className="w-[80px] text-center text-stone-400">Status</TableHead>
+                        <TableHead className="w-[150px] text-stone-400">Local</TableHead>
+                        <TableHead className="w-[100px] text-stone-400">Código</TableHead>
+                        <TableHead className="w-[120px] text-stone-400">SKU</TableHead>
+                        <TableHead className="text-stone-400">Produto</TableHead>
+                        <TableHead className="text-stone-400">Atende Pedidos</TableHead>
+                        <TableHead className="text-right text-stone-400">Qtd. Coletar</TableHead>
                       </TableRow>
                     </TableHeader>
-                    <TableBody>
+                    <TableBody className="divide-y divide-stone-800">
                       {pickingList.map((item, idx) => {
                         const isChecked = checkedItems.includes(idx);
                         return (
-                          <TableRow key={idx} className={cn("transition-colors", isChecked ? "bg-green-50/40 hover:bg-green-50/60" : "hover:bg-slate-50/50")}>
+                          <TableRow key={idx} className={cn("transition-colors border-stone-800", isChecked ? "bg-green-950/20 hover:bg-green-950/30" : "hover:bg-stone-800/50")}>
                             <TableCell className="text-center font-bold">
-                              <div onClick={(e) => handleToggleCheck(idx, e)} className={cn("w-7 h-7 rounded-full flex items-center justify-center mx-auto text-xs cursor-pointer transition-all border-2", isChecked ? "bg-green-500 border-green-500 text-white" : "bg-slate-100 border-slate-200 text-slate-500 hover:border-blue-400 hover:text-blue-500")}>
+                              <div onClick={(e) => handleToggleCheck(idx, e)} className={cn("w-7 h-7 rounded-full flex items-center justify-center mx-auto text-xs cursor-pointer transition-all border-2", isChecked ? "bg-green-600 border-green-600 text-white" : "bg-stone-800 border-stone-700 text-stone-400 hover:border-red-500 hover:text-red-500")}>
                                 {isChecked ? <CheckCircle className="w-4 h-4" /> : (idx + 1)}
                               </div>
                             </TableCell>
-                            <TableCell><Badge variant="outline" className={cn("font-mono text-sm", isChecked ? "bg-transparent text-slate-400 border-slate-200" : "bg-purple-50 text-purple-700 border-purple-200")}>{item.local}</Badge></TableCell>
-                            <TableCell className={cn("font-mono", isChecked ? "text-slate-400 line-through" : "text-slate-500")}>{item.codigo}</TableCell>
-                            <TableCell className={cn("font-mono font-medium", isChecked ? "text-slate-400 line-through" : "text-blue-600")}>{item.sku}</TableCell>
-                            <TableCell className={cn("font-medium", isChecked ? "text-slate-400 line-through" : "text-slate-800")}>{item.descricao}</TableCell>
-                            <TableCell><span className={cn("text-xs", isChecked ? "text-slate-300" : "text-slate-500")}>{item.pedidos.join(', ')}</span></TableCell>
-                            <TableCell className="text-right"><span className={cn("text-lg font-bold", isChecked ? "text-slate-300" : "text-green-600")}>{item.qtdeTotal} un</span></TableCell>
+                            <TableCell><Badge variant="outline" className={cn("font-mono text-sm", isChecked ? "bg-transparent text-stone-500 border-stone-700" : "bg-stone-800 text-stone-300 border-stone-700")}>{item.local}</Badge></TableCell>
+                            <TableCell className={cn("font-mono", isChecked ? "text-stone-600 line-through" : "text-stone-400")}>{item.codigo}</TableCell>
+                            <TableCell className={cn("font-mono font-medium", isChecked ? "text-stone-600 line-through" : "text-red-400")}>{item.sku}</TableCell>
+                            <TableCell className={cn("font-medium", isChecked ? "text-stone-600 line-through" : "text-stone-200")}>{item.descricao}</TableCell>
+                            <TableCell><span className={cn("text-xs", isChecked ? "text-stone-600" : "text-stone-400")}>{item.pedidos.join(', ')}</span></TableCell>
+                            <TableCell className="text-right"><span className={cn("text-lg font-bold", isChecked ? "text-stone-600" : "text-green-500")}>{item.qtdeTotal} un</span></TableCell>
                           </TableRow>
                         );
                       })}
