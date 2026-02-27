@@ -39,30 +39,30 @@ export function AppSidebar() {
   return (
     <aside 
       className={cn(
-        // Removido o 'hidden md:flex' para que o conteúdo renderize normalmente no mobile
         "flex bg-stone-950 text-stone-300 flex-col border-r border-stone-800/60 transition-all duration-300 h-[100dvh] sticky top-0 z-50",
         collapsed ? "w-20" : "w-64"
       )}
     >
-      {/* Brand - Logo ocupando todo o espaço */}
-      <div className="border-b border-stone-800/60 flex items-center justify-center w-full h-24 overflow-hidden bg-black/20">
+      {/* Brand - Logo ConvergeX */}
+      <div className="border-b border-stone-800/60 flex items-center justify-center w-full h-24 overflow-hidden bg-black/20 shrink-0">
         {!collapsed ? (
           <img 
             src="/logo.png" 
-            alt="Logo" 
+            alt="ConvergeX" 
             className="w-full h-full object-cover" 
+            fetchpriority="high"
           />
         ) : (
           <img 
             src="/logo.png" 
-            alt="Logo" 
+            alt="ConvergeX" 
             className="h-10 w-10 object-cover rounded-md" 
           />
         )}
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-1.5 overflow-y-auto custom-scrollbar">
+      {/* Navigation - Scroll Removido (overflow-hidden) */}
+      <nav className="flex-1 p-4 space-y-1.5 overflow-hidden">
         {!collapsed && (
           <span className="text-xs uppercase text-stone-500 font-bold px-3 py-2 block mb-2 tracking-wider">
             Menu Principal
@@ -91,8 +91,8 @@ export function AppSidebar() {
         })}
       </nav>
 
-      {/* Rodapé Compacto */}
-      <div className="border-t border-stone-800/60 p-3 space-y-1">
+      {/* Rodapé Compacto - Sem scroll */}
+      <div className="border-t border-stone-800/60 p-3 space-y-1 shrink-0 bg-stone-950">
         {!collapsed ? (
           <>
             <div className="flex items-center gap-3 px-2 py-2 mb-2">
