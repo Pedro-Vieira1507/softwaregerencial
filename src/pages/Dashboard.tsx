@@ -215,24 +215,25 @@ export default function Dashboard() {
   const currentRecurrenceData = recurringDataByMonth[selectedMonth] || [];
 
   return (
-    // Fundo geral do Dashboard para Stone 950 (Apenas se o componente pai não prover a cor)
     <div className="w-full max-w-full overflow-x-hidden space-y-4 sm:space-y-6 pb-6 text-stone-200">
       
       {/* Cabeçalho */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 w-full">
         <div className="w-full min-w-0">
-           {/* Se o seu PageHeader não tiver suporte a dark mode nativo, ele pode precisar de ajustes lá dentro também */}
            <PageHeader title="Dashboard" description="Visão geral das integrações e status do sistema" />
         </div>
+        
+        {/* === BOTÃO MODIFICADO AQUI === */}
         <Button 
           onClick={() => handleSync(false)} 
           disabled={syncing} 
-          variant="outline"
-          className="w-full sm:w-auto shadow-sm flex-shrink-0 bg-stone-900 border-stone-700 text-stone-200 hover:bg-stone-800 hover:text-white"
+          className="w-full sm:w-auto shadow-lg flex-shrink-0 bg-red-600 hover:bg-red-700 text-white border-none transition-all hover:shadow-red-900/20"
         >
           <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
           {syncing ? 'Atualizando...' : 'Atualizar Dados'}
         </Button>
+        {/* ============================= */}
+
       </div>
 
       {/* GRELHA DE CARTÕES DE ESTATÍSTICA */}

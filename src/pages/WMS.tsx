@@ -500,11 +500,35 @@ export default function WMS() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <PageHeader title="Roteirização WMS" description="Mapeamento Fino por Coluna e Andar com suporte a múltiplos Galpões." />
         <div className="flex gap-2">
+          
           <div className="bg-stone-900 border border-stone-800 p-1 rounded-lg flex shadow-inner">
-            <button className={cn("px-4 py-1.5 rounded-md text-sm font-bold transition-all flex items-center gap-2", activeTab === 'operation' ? "bg-stone-800 text-red-500 shadow" : "text-stone-500 hover:text-stone-300")} onClick={() => setActiveTab('operation')}><Maximize className="w-4 h-4"/> Operação 3D</button>
-            <button className={cn("px-4 py-1.5 rounded-md text-sm font-bold transition-all flex items-center gap-2", activeTab === 'builder' ? "bg-stone-800 text-red-500 shadow" : "text-stone-500 hover:text-stone-300")} onClick={() => setActiveTab('builder')}><Edit3 className="w-4 h-4"/> Construtor 2D</button>
+            <button 
+              className={cn("px-4 py-1.5 rounded-md text-sm font-bold transition-all flex items-center gap-2", 
+                activeTab === 'operation' ? "bg-red-600 text-white shadow-md shadow-red-900/20" : "text-stone-400 hover:text-stone-200 hover:bg-stone-800"
+              )} 
+              onClick={() => setActiveTab('operation')}
+            >
+              <Maximize className="w-4 h-4"/> Operação 3D
+            </button>
+            <button 
+              className={cn("px-4 py-1.5 rounded-md text-sm font-bold transition-all flex items-center gap-2", 
+                activeTab === 'builder' ? "bg-red-600 text-white shadow-md shadow-red-900/20" : "text-stone-400 hover:text-stone-200 hover:bg-stone-800"
+              )} 
+              onClick={() => setActiveTab('builder')}
+            >
+              <Edit3 className="w-4 h-4"/> Construtor 2D
+            </button>
           </div>
-          {activeTab === 'operation' && pickingList.length > 0 && <Button variant="outline" className="bg-stone-900 border-stone-800 text-stone-200 hover:bg-stone-800" onClick={resetList}><RefreshCw className="w-4 h-4 mr-2" /> Novo Lote</Button>}
+
+          {activeTab === 'operation' && pickingList.length > 0 && (
+            <Button 
+              className="bg-red-600 hover:bg-red-700 text-white border-none shadow-md transition-all hover:shadow-red-900/20" 
+              onClick={resetList}
+            >
+              <RefreshCw className="w-4 h-4 mr-2" /> Novo Lote
+            </Button>
+          )}
+
         </div>
       </div>
 
@@ -539,7 +563,7 @@ export default function WMS() {
                 </div>
               </div>
 
-              <Button onClick={addNewElement} className="w-full bg-red-600 hover:bg-red-700 text-white border-none"><Plus className="w-4 h-4 mr-2"/> Nova Estrutura neste Galpão</Button>
+              <Button onClick={addNewElement} className="w-full bg-red-600 hover:bg-red-700 text-white border-none shadow-md transition-all hover:shadow-red-900/20"><Plus className="w-4 h-4 mr-2"/> Nova Estrutura neste Galpão</Button>
               
               {selectedEl ? (() => {
                 const el = elements.find(e=>e.id===selectedEl)!;
@@ -691,7 +715,7 @@ export default function WMS() {
                   </div>
                 </div>
 
-                <Button className="w-full h-12 text-md shadow-lg bg-red-600 hover:bg-red-700 text-white border-none" onClick={handleProcessFile} disabled={!file || isProcessing}>
+                <Button className="w-full h-12 text-md shadow-md shadow-red-900/20 bg-red-600 hover:bg-red-700 text-white border-none transition-all" onClick={handleProcessFile} disabled={!file || isProcessing}>
                   {isProcessing ? "Lendo dados..." : "Processar Separação"}
                 </Button>
               </CardContent>
@@ -706,7 +730,16 @@ export default function WMS() {
                 </CardTitle>
                 <CardDescription className="text-stone-400"><strong>Arraste o fundo</strong> para girar a câmera. As bolinhas voam exatamente para o compartimento mapeado!</CardDescription>
               </div>
-              <Button variant="outline" size="sm" onClick={() => setCamRot({x:55, z:-35})} className="bg-stone-800 border-stone-700 text-stone-200 hover:bg-stone-700">Recentralizar Câmera</Button>
+              
+              {/* BOTÃO RECENTRALIZAR CÂMERA */}
+              <Button 
+                size="sm" 
+                onClick={() => setCamRot({x:55, z:-35})} 
+                className="bg-red-600 hover:bg-red-700 text-white border-none shadow-md transition-all hover:shadow-red-900/20"
+              >
+                Recentralizar Câmera
+              </Button>
+
             </CardHeader>
             <CardContent className="p-0 bg-stone-950 flex justify-center items-center h-[650px] overflow-hidden relative perspective-[1200px]" >
               
