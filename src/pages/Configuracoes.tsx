@@ -199,17 +199,13 @@ export default function Configuracoes() {
     setBizStatus("idle");
 
     try {
+      // Deixamos o próprio Supabase enviar a sessão atual automaticamente
       const { data, error } = await supabase.functions.invoke('sync-magento-orders', {
-        headers: {
-          'Authorization': `Bearer ${bizToken}`,
-          'x-magento-url': bizUrl
-        }
+        body: { action: 'TEST_CONNECTION', testUrl: bizUrl, testToken: bizToken }
       });
 
       if (error) throw error;
-      if (data && data.message && data.message.includes("401")) {
-         throw new Error("Acesso negado. Verifique o Token.");
-      }
+      if (data && data.error) throw new Error(data.error);
 
       setBizStatus("success");
       toast({ title: "Sucesso!", description: "Conexão com BizCommerce verificada." });
@@ -222,7 +218,6 @@ export default function Configuracoes() {
       setIsTestingBiz(false);
     }
   };
-
   if (isLoadingConfigs) {
     return <div className="p-8 flex justify-center"><Loader2 className="animate-spin text-primary w-8 h-8" /></div>;
   }
